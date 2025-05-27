@@ -1,0 +1,92 @@
+/* Schedule.css */
+.react-calendar {
+  width: 100%;
+  border: none;
+  font-family: inherit;
+}
+
+.react-calendar__tile {
+  height: 60px;
+  position: relative;
+  padding-top: 10px !important;
+  padding-bottom: 25px !important;
+}
+
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus,
+.react-calendar__tile--active {
+  background-color: rgba(13, 110, 253, 0.1);
+  border-radius: 8px;
+}
+
+.react-calendar__tile--now {
+  background-color: rgba(255, 220, 40, 0.2);
+  border-radius: 8px;
+}
+
+.react-calendar__tile--now:enabled:hover,
+.react-calendar__tile--now:enabled:focus {
+  background-color: rgba(255, 220, 40, 0.3);
+}
+
+/* Trainee selector styling */
+.trainee-card .card-body {
+  transition: all 0.2s ease;
+}
+
+.btn-outline-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.workout-indicator {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 95%;
+  line-height: 1.2;
+}
+
+.workout-description {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .react-calendar__tile {
+    height: 50px;
+    padding-top: 5px !important;
+    padding-bottom: 18px !important;
+  }
+  
+  .workout-indicator {
+    font-size: 0.6rem;
+  }
+}
+
+/* Dropdown menu styling */
+.trainee-dropdown {
+  position: relative;
+}
+
+.trainee-dropdown .dropdown-menu {
+  width: 250px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.trainee-dropdown .dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}

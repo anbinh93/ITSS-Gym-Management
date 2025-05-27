@@ -1,0 +1,57 @@
+.review-option-card {
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+.review-option-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.review-icon {
+    height: 80px;
+    width: 80px;
+    border-radius: 50%;
+    background-color: rgba(13, 110, 253, 0.1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.star {
+    font-size: 2rem;
+    color: #e4e5e9;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.star.filled {
+    color: #ffc107;
+}
+
+.star-display {
+    font-size: 1rem;
+    color: #e4e5e9;
+}
+
+.star-display.filled {
+    color: #ffc107;
+}
+
+.trainer-card {
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.trainer-card.selected {
+    border-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.trainer-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
