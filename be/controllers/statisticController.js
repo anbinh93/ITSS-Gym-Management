@@ -1,5 +1,4 @@
 import { membershipModel } from "../models/membershipModel.js";
-import { workoutLogModel } from "../models/workoutLogModel.js";
 import { userModel } from "../models/userModel.js";
 import { feedbackModel } from "../models/feedbackModel.js";
 

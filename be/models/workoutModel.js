@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const workoutLogSchema = new mongoose.Schema({
+const workoutSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   trainer: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   date: { type: Date, default: Date.now },
@@ -8,4 +8,4 @@ const workoutLogSchema = new mongoose.Schema({
   notes: String,
 }, { timestamps: true });
 
-export const workoutLogModel = mongoose.models.WorkoutLog || mongoose.model("WorkoutLog", workoutLogSchema);
+export const workoutModel = mongoose.models.WorkoutLog || mongoose.model("workout", workoutSchema);
