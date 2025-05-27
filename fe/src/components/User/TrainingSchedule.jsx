@@ -8,21 +8,21 @@ export default function UserTrainingSchedule() {
 
     const scheduleData = {
         "2025-05-15": [
-            { time: "07:00 - 08:00", activity: "Tập cardio", trainer: "Patrick Nguyen" },
-            { time: "17:30 - 18:30", activity: "Tập tay vai", trainer: "Patrick Nguyen" }
+            { time: "07:00 - 08:00", activity: "Tập cardio", trainer: "An Bình Nguyen" },
+            { time: "17:30 - 18:30", activity: "Tập tay vai", trainer: "An Bình Nguyen" }
         ],
         "2025-05-16": [
-            { time: "08:00 - 09:00", activity: "Yoga", trainer: "Patrick Nguyen" }
+            { time: "08:00 - 09:00", activity: "Yoga", trainer: "An Bình Nguyen" }
         ],
         "2025-05-17": [
-            { time: "09:00 - 10:00", activity: "Tập chân", trainer: "Patrick Nguyen" },
+            { time: "09:00 - 10:00", activity: "Tập chân", trainer: "An Bình Nguyen" },
             { time: "16:00 - 17:00", activity: "Tập bụng", trainer: null }
         ],
         "2025-05-18": [
-            { time: "10:00 - 11:00", activity: "Tập lưng", trainer: "Patrick Nguyen" }
+            { time: "10:00 - 11:00", activity: "Tập lưng", trainer: "An Bình Nguyen" }
         ],
         "2025-05-20": [
-            { time: "18:00 - 19:00", activity: "Boxing", trainer: "Patrick Nguyen" }
+            { time: "18:00 - 19:00", activity: "Boxing", trainer: "An Bình Nguyen" }
         ]
     };
 

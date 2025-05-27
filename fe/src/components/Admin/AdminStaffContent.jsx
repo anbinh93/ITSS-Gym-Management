@@ -19,7 +19,7 @@ export default function AdminStaffContent() {
     {
       id: 2,
       username: "hieujr",
-      name: "Nguyen Thanh Hieu",
+      name: "Nguyen Binh An",
       email: "hieu@gmail.com",
       phone: "09225423131",
       role: "Nhân viên",

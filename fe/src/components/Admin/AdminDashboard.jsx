@@ -1,3 +1,4 @@
+import '../../styles/adminDashboard.css';
 import StatCard from "./StatCard";
 import RecentUsageTable from "../Manage/RecentUsageTable";
 import ServiceUsageChart from "./ServiceUsageChart";
@@ -137,7 +138,7 @@ export default function AdminDashboard() {
             <div className="card-header">
               <h5 className="card-title mb-0">Recent Member Activity</h5>
             </div>
-            <div className="card-body p-0">
+            <div className="card-body p-0 table-responsive">
               <RecentUsageTable data={recentUsage} />
             </div>
           </div>

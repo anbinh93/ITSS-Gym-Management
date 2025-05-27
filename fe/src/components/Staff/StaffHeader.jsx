@@ -17,7 +17,7 @@ const Header = () => {
     >
       <h1 className="fs-4 fw-semibold mb-0">Trang nhân viên quản lý</h1>
       <div className="d-flex align-items-center">
-        <div className="me-3">👤 Staff Patrick Nguyễn</div>
+        <div className="me-3">👤 Staff An Bình Nguyễn</div>
         <Dropdown>
           <Dropdown.Toggle
             as="img"

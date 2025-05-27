@@ -18,11 +18,11 @@ const GymReview = () => {
     useEffect(() => {
         // This would typically come from an API
         const mockTrainers = [
-            { id: 1, name: 'Patrick Nguyễn ', specialization: 'Cardio & HIIT', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
-            { id: 2, name: 'Patrick Nguyễn ', specialization: 'Yoga & Pilates', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
-            { id: 3, name: 'Patrick Nguyễn', specialization: 'Strength & Conditioning', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
-            { id: 4, name: 'Patrick Nguyễn', specialization: 'CrossFit', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
-            { id: 5, name: 'Patrick Nguyễn', specialization: 'Nutrition & Weight Loss', image: 'https://randomuser.me/api/portraits/men/1.jpg' }
+            { id: 1, name: 'An Bình Nguyễn ', specialization: 'Cardio & HIIT', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { id: 2, name: 'An Bình Nguyễn ', specialization: 'Yoga & Pilates', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { id: 3, name: 'An Bình Nguyễn', specialization: 'Strength & Conditioning', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { id: 4, name: 'An Bình Nguyễn', specialization: 'CrossFit', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
+            { id: 5, name: 'An Bình Nguyễn', specialization: 'Nutrition & Weight Loss', image: 'https://randomuser.me/api/portraits/men/1.jpg' }
         ];
         setTrainers(mockTrainers);
 
@@ -39,7 +39,7 @@ const GymReview = () => {
             {
                 id: 2,
                 type: 'trainer',
-                trainerName: 'PatrickNguyen',
+                trainerName: 'An BìnhNguyen',
                 userName: 'Wean Lee',
                 rating: 4,
                 date: '10/05/2025',

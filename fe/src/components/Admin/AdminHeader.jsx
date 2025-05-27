@@ -17,7 +17,7 @@ const AdminHeader = () => {
     >
       <h1 className="fs-4 fw-semibold mb-0">Trang Administrator</h1>
       <div className="d-flex align-items-center">
-        <div className="me-3">👤 Admin Patrick Nguyễn</div>
+        <div className="me-3">👤 Admin An Bình Nguyễn</div>
         <Dropdown>
           <Dropdown.Toggle
             as="img"
