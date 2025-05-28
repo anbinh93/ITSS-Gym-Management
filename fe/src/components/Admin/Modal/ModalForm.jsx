@@ -27,7 +27,6 @@ const ModalForm = ({
 
   const handleSave = () => {
     onSubmit(formData);
-    handleClose();
   };
 
   return (

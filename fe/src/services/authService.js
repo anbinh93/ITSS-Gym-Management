@@ -1,3 +1,5 @@
+import { login as apiLogin, register as apiRegister, getCurrentUser as apiGetCurrentUser, logout as apiLogout } from "./api";
+
 // Mock Authentication Service
 const DEMO_ACCOUNTS = [
   {
@@ -76,71 +78,39 @@ const decodeToken = (token) => {
 export const authService = {
   // Login with email/username and password
   async login(credentials) {
-    await delay(800); // Simulate network delay
-    
+    console.log('authService.login called with:', credentials);
     const { emailOrUsername, password } = credentials;
-    
-    const user = DEMO_ACCOUNTS.find(
-      account => 
-        (account.email === emailOrUsername || account.username === emailOrUsername) &&
-        account.password === password
-    );
-    
-    if (!user) {
-      throw new Error('Invalid email/username or password');
+    const result = await apiLogin(emailOrUsername, password);
+    if (!result.success) {
+      localStorage.removeItem("gym_token");
+      localStorage.removeItem("gym_user");
+      throw new Error(result.message || "Login failed");
     }
-    
-    const token = generateToken(user);
-    const { password: _, ...userWithoutPassword } = user;
-    
-    // Store in localStorage for persistence
-    localStorage.setItem('gym_token', token);
-    localStorage.setItem('gym_user', JSON.stringify(userWithoutPassword));
-    
-    return {
-      user: userWithoutPassword,
-      token,
-      message: 'Login successful'
-    };
+    localStorage.setItem("gym_token", result.token);
+    localStorage.setItem("gym_user", JSON.stringify(result.user));
+    return result;
   },
   
   // Logout
   async logout() {
-    await delay(300);
-    localStorage.removeItem('gym_token');
-    localStorage.removeItem('gym_user');
-    return { message: 'Logout successful' };
+    localStorage.removeItem("gym_token");
+    localStorage.removeItem("gym_user");
+    return apiLogout();
   },
   
   // Get current user from stored token
   getCurrentUser() {
-    const token = localStorage.getItem('gym_token');
-    const storedUser = localStorage.getItem('gym_user');
-    
-    if (!token || !storedUser) return null;
-    
-    const payload = decodeToken(token);
-    if (!payload) {
-      // Token invalid or expired
-      this.logout();
-      return null;
-    }
-    
-    return JSON.parse(storedUser);
+    return JSON.parse(localStorage.getItem("gym_user") || "null");
   },
   
   // Check if user is authenticated
   isAuthenticated() {
-    const token = localStorage.getItem('gym_token');
-    if (!token) return false;
-    
-    const payload = decodeToken(token);
-    return payload !== null;
+    return !!localStorage.getItem("gym_token");
   },
   
   // Get stored token
   getToken() {
-    return localStorage.getItem('gym_token');
+    return localStorage.getItem("gym_token");
   },
   
   // Get demo accounts (for development/testing)
@@ -159,13 +129,11 @@ export const authService = {
   
   // Refresh token (mock implementation)
   async refreshToken() {
-    await delay(500);
     const user = this.getCurrentUser();
-    if (!user) throw new Error('No user found');
-    
-    const newToken = generateToken(user);
-    localStorage.setItem('gym_token', newToken);
-    return { token: newToken };
+    if (!user) throw new Error("No user found");
+    const result = await apiLogin(user.email, user.password);
+    localStorage.setItem("gym_token", result.token);
+    return { token: result.token };
   }
 };
 

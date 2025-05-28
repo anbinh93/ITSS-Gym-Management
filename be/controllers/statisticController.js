@@ -1,5 +1,5 @@
 import { membershipModel } from "../models/membershipModel.js";
-import { userModel } from "../models/userModel.js";
+// import { userModel } from "../models/userModel.js";
 import { feedbackModel } from "../models/feedbackModel.js";
 
 // Doanh thu cơ bản (tổng tiền từ các gói đã mua)
@@ -8,7 +8,7 @@ const getRevenue = async (req, res) => {
         const data = await membershipModel.find().populate("package");
         const revenue = data.reduce((sum, m) => sum + (m.package?.price || 0), 0);
         res.json({ success: true, revenue });
-    } catch (err) {
+    } catch {
         res.json({ success: false, message: "Error calculating revenue" });
     }
 };
@@ -19,7 +19,7 @@ const getNewMembersStats = async (req, res) => {
         const count = await membershipModel.countDocuments();
         const recent = await membershipModel.find().sort({ createdAt: -1 }).limit(10).populate("user");
         res.json({ success: true, total: count, recent });
-    } catch (err) {
+    } catch {
         res.json({ success: false, message: "Error fetching stats" });
     }
 };
@@ -38,7 +38,7 @@ const getStaffPerformance = async (req, res) => {
             }
         }
         res.json({ success: true, stats: map });
-    } catch (err) {
+    } catch {
         res.json({ success: false, message: "Error calculating staff performance" });
     }
 };

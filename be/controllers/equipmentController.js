@@ -8,7 +8,7 @@ const addEquipment = async (req, res) => {
             name, quantity, condition, purchaseDate, warrantyExpiry, notes
         });
         res.json({ success: true, equipment });
-    } catch (err) {
+    } catch {
         res.json({ success: false, message: "Error adding equipment" });
     }
 };
@@ -18,7 +18,7 @@ const getAllEquipment = async (req, res) => {
     try {
         const list = await equipmentModel.find();
         res.json({ success: true, equipment: list });
-    } catch (err) {
+    } catch {
         res.json({ success: false, message: "Error fetching equipment" });
     }
 };
@@ -29,7 +29,7 @@ const updateEquipment = async (req, res) => {
     try {
         const updated = await equipmentModel.findByIdAndUpdate(id, req.body, { new: true });
         res.json({ success: true, equipment: updated });
-    } catch (err) {
+    } catch {
         res.json({ success: false, message: "Error updating equipment" });
     }
 };
@@ -40,7 +40,7 @@ const deleteEquipment = async (req, res) => {
     try {
         await equipmentModel.findByIdAndDelete(id);
         res.json({ success: true, message: "Deleted successfully" });
-    } catch (err) {
+    } catch {
         res.json({ success: false, message: "Error deleting equipment" });
     }
 };

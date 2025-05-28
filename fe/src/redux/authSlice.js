@@ -40,10 +40,13 @@ export const refreshToken = createAsyncThunk(
 
 // Get initial state from localStorage
 const getInitialState = () => {
-  const user = authService.getCurrentUser();
-  const token = authService.getToken();
-  const isAuthenticated = authService.isAuthenticated();
-
+  const user = JSON.parse(localStorage.getItem('gym_user') || 'null');
+  const token = localStorage.getItem('gym_token');
+  if (!user || !token) {
+    localStorage.removeItem('gym_token');
+    localStorage.removeItem('gym_user');
+  }
+  const isAuthenticated = !!token && !!user;
   return {
     currentUser: user,
     isLoggedIn: isAuthenticated,
@@ -70,7 +73,7 @@ const authSlice = createSlice({
       }
     },
     checkAuthStatus: (state) => {
-      const user = authService.getCurrentUser();
+      const user = JSON.parse(localStorage.getItem('gym_user') || 'null');
       const token = authService.getToken();
       const isAuthenticated = authService.isAuthenticated();
       
