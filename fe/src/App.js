@@ -40,6 +40,8 @@ import UserMembership from './pages/user/UserMembership'
 import UserReview from './pages/user/UserReview'
 import UserProfile from './pages/user/UserProfile'
 
+import HomePage from './pages/HomePage'
+
 function App() {
   const isLoggedIn = useSelector(selectIsLoggedIn)
   const currentUser = useSelector(selectCurrentUser)
@@ -68,8 +70,9 @@ function App() {
   return (
     <div className="App">
       <Routes>
-        {/* Root and Login Routes */}
-        <Route path='/' element={<RootRedirect />} />
+        {/* Homepage Public Route */}
+        <Route path='/home' element={<HomePage />} />
+        <Route path='/' element={<HomePage />} />
         <Route path='/login' element={<LoginPage />} />
         
         {/* Admin Routes */}

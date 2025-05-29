@@ -4,7 +4,9 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "server": "nodemon server.js"
+    "server": "nodemon server.js",
+    "lint": "eslint .",
+    "seed": "node seed.js"
   },
   "keywords": [],
   "author": "KMB",

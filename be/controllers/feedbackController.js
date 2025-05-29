@@ -6,7 +6,7 @@ const submitFeedback = async (req, res) => {
     try {
         const feedback = await feedbackModel.create({ user: userId, rating, message, target, relatedUser });
         res.json({ success: true, feedback });
-    } catch (err) {
+    } catch {
         res.json({ success: false, message: "Error submitting feedback" });
     }
 };
@@ -17,7 +17,7 @@ const getFeedbacksByTarget = async (req, res) => {
     try {
         const list = await feedbackModel.find({ target }).populate("user", "name");
         res.json({ success: true, feedbacks: list });
-    } catch (err) {
+    } catch {
         res.json({ success: false, message: "Error fetching feedbacks" });
     }
 };
