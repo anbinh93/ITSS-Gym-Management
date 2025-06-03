@@ -7,6 +7,7 @@ const membershipSchema = new mongoose.Schema({
   endDate: Date,
   sessionsRemaining: Number,
   isActive: Boolean,
+  paymentStatus: { type: String, enum: ['paid', 'unpaid'], default: 'unpaid' },
 }, { timestamps: true });
 
 export const membershipModel = mongoose.models.Membership || mongoose.model("Membership", membershipSchema);

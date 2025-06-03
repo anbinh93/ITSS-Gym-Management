@@ -13,7 +13,16 @@ export const getAllGymRooms = async (req, res) => {
 // Thêm phòng tập
 export const createGymRoom = async (req, res) => {
   try {
-    const room = await gymRoomModel.create(req.body);
+    const { name, location, capacity, description, status } = req.body;
+    // Validate status
+    const validStatus = ['available', 'unavailable'];
+    const room = await gymRoomModel.create({
+      name,
+      location,
+      capacity,
+      description,
+      status: validStatus.includes(status) ? status : 'available'
+    });
     res.json({ success: true, room });
   } catch (err) {
     res.status(400).json({ success: false, message: "Error", error: err.message });
@@ -23,7 +32,17 @@ export const createGymRoom = async (req, res) => {
 // Sửa phòng tập
 export const updateGymRoom = async (req, res) => {
   try {
-    const room = await gymRoomModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const { name, location, capacity, description, status } = req.body;
+    // Validate status
+    const validStatus = ['available', 'unavailable'];
+    const updateData = {
+      ...(name && { name }),
+      ...(location && { location }),
+      ...(capacity && { capacity }),
+      ...(description && { description }),
+    };
+    if (status && validStatus.includes(status)) updateData.status = status;
+    const room = await gymRoomModel.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!room) return res.status(404).json({ success: false, message: "Not found" });
     res.json({ success: true, room });
   } catch (err) {

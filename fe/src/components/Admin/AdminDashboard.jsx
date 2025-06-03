@@ -75,7 +75,9 @@ export default function AdminDashboard() {
 
       // Tính toán statistics
       const totalCustomers = (usersData.users || []).filter(u => u.role === 'member' || u.role === 'user').length;
-      const totalRooms = (roomsData.gymrooms || []).length;
+      // Đếm số phòng hoạt động (status: 'available')
+      const allRooms = roomsData.rooms || roomsData.gymrooms || [];
+      const totalRooms = allRooms.filter(r => r.status === 'available').length;
       const totalDevices = (devicesData.equipment || []).filter(d => d.condition === 'Good').length;
       const totalPackages = (packagesData.packages || []).length;
 
@@ -102,13 +104,21 @@ export default function AdminDashboard() {
     fetchDashboardData();
   }, []);
 
-  // Tạo dữ liệu cho biểu đồ service usage từ packages
-  const serviceUsageData = [
-    { service: "Gói theo buổi", count: Math.floor(stats.totalCustomers * 0.4) },
-    { service: "Gói cá nhân với HLV", count: Math.floor(stats.totalCustomers * 0.3) },
-    { service: "Gói 3 tháng", count: Math.floor(stats.totalCustomers * 0.2) },
-    { service: "Gói 1 năm", count: Math.floor(stats.totalCustomers * 0.1) },
-  ];
+  // Thống kê dịch vụ thực tế từ packages nếu có
+  let serviceUsageData = [];
+  if (stats.totalPackage && Array.isArray(stats.totalPackage)) {
+    serviceUsageData = stats.totalPackage.map(pkg => ({
+      service: pkg.name,
+      count: pkg.usageCount || 0
+    }));
+  } else {
+    serviceUsageData = [
+      { service: "Gói theo buổi", count: Math.floor(stats.totalCustomers * 0.4) },
+      { service: "Gói cá nhân với HLV", count: Math.floor(stats.totalCustomers * 0.3) },
+      { service: "Gói 3 tháng", count: Math.floor(stats.totalCustomers * 0.2) },
+      { service: "Gói 1 năm", count: Math.floor(stats.totalCustomers * 0.1) },
+    ];
+  }
 
   // Mock recent usage (có thể tạo API riêng cho phần này sau)
   const recentUsage = memberStats.recent?.slice(0, 5).map((member, index) => ({

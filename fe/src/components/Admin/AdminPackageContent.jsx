@@ -1,76 +1,102 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ButtonAddNew from "../Button/ButtonAddNew";
 import ActionButtons from "../Button/ActionButtons";
 import ModalForm from "./Modal/ModalForm";
+import { getAllPackages, createPackage, updatePackage, deletePackage, getAllUsers } from '../../services/api';
+import { getAllMemberships, registerMembership, updatePaymentStatus } from '../../services/membershipApi';
 
 export default function AdminPackageContent() {
-  const [packages, setPackages] = useState([
-    {
-      id: 1,
-      name: "Gói 3 tháng",
-      duration: 3,
-      type: "Thông thường",
-      price: 1500000,
-    },
-    {
-      id: 2,
-      name: "Gói tập cá nhân VIP",
-      duration: 1,
-      type: "Huấn luyện viên riêng",
-      price: 3000000,
-    },
-  ]);
+  const [packages, setPackages] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
-  const [registrations, setRegistrations] = useState([
-    {
-      id: 1,
-      customerName: "Nguyễn Văn A",
-      packageName: "Gói 3 tháng",
-      registerDate: "2024-05-10",
-      status: "Đã thanh toán",
-    },
-  ]);
+  const [memberships, setMemberships] = useState([]);
 
   const [isShowModalAddPackage, setIsShowModalAddPackage] = useState(false);
   const [isShowModalAddRegistration, setIsShowModalAddRegistration] = useState(false);
   const [packageEdit, setPackageEdit] = useState({});
 
+  // Fetch packages and users from backend
+  const fetchPackages = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await getAllPackages();
+      setPackages(res.packages || []);
+    } catch (err) {
+      setError(err.message || "Lỗi tải gói tập");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await getAllUsers();
+      // Lọc chỉ lấy user/member
+      const customerUsers = (res.users || []).filter(u => u.role === 'user' || u.role === 'member');
+      setUsers(customerUsers);
+    } catch (err) {
+      setError(err.message || "Lỗi tải danh sách khách hàng");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMemberships = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await getAllMemberships();
+      setMemberships(res.data?.memberships || []);
+    } catch (err) {
+      setError(err.message || "Lỗi tải danh sách đăng ký");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPackages();
+    fetchUsers();
+    fetchMemberships();
+  }, []);
+
   const packageFields = [
     { name: "name", label: "Tên gói", placeholder: "VD: Gói 6 tháng" },
-    { name: "duration", label: "Thời hạn (tháng)", type: "number", placeholder: "VD: 6" },
-    {
-      name: "type",
-      label: "Loại gói",
-      type: "select",
-      options: [
-        { label: "Theo buổi", value: "buoi" },
-        { label: "Thông thường", value: "thongthuong" },
-        { label: "VIP", value: "vip" },
-        { label: "Huấn luyện viên riêng", value: "pt" },
-      ],
-    },
+    { name: "durationInDays", label: "Thời hạn (ngày)", type: "number", placeholder: "VD: 180" },
+    { name: "sessionLimit", label: "Số buổi tập", type: "number", placeholder: "VD: 30" },
     { name: "price", label: "Giá tiền (VNĐ)", type: "number", placeholder: "VD: 1000000" },
+    { name: "withTrainer", label: "Có HLV riêng?", type: "select", options: [
+      { label: "Không", value: false },
+      { label: "Có", value: true }
+    ] },
   ];
 
   const registrationFields = [
-    { name: "customerName", label: "Họ tên khách hàng", placeholder: "VD: Trần Thị B" },
     {
-      name: "packageName",
+      name: "userId",
+      label: "Khách hàng",
+      type: "select",
+      options: users.map((u) => ({ label: `${u.name} (${u.email})`, value: u._id })),
+    },
+    {
+      name: "packageId",
       label: "Gói tập",
       type: "select",
-      options: packages.map((pkg) => ({
-        label: pkg.name,
-        value: pkg.name,
-      })),
+      options: packages.map((pkg) => ({ label: pkg.name, value: pkg._id })),
     },
-    { name: "registerDate", label: "Ngày đăng ký", type: "date" },
     {
-      name: "status",
+      name: "paymentStatus",
       label: "Tình trạng thanh toán",
       type: "radio",
       options: [
-        { value: "Đã thanh toán", label: "Đã thanh toán" },
-        { value: "Chưa thanh toán", label: "Chưa thanh toán" },
+        { value: "paid", label: "Đã thanh toán" },
+        { value: "unpaid", label: "Chưa thanh toán" },
       ],
     },
   ];
@@ -87,20 +113,73 @@ export default function AdminPackageContent() {
     setIsShowModalAddPackage(true);
   };
 
-  const handleDeletePackage = (id) => {
-    setPackages(packages.filter((pkg) => pkg.id !== id));
+  const handleDeletePackage = async (id) => {
+    setLoading(true);
+    setError("");
+    try {
+      await deletePackage(id);
+      await fetchPackages();
+    } catch (err) {
+      setError(err.message || "Lỗi xóa gói tập");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const onSubmitPackage = (data) => {
-    console.log("Gói tập mới:", data);
-    setPackages([...packages, { ...data, id: Date.now() }]);
-    setIsShowModalAddPackage(false);
+  const onSubmitPackage = async (data) => {
+    setLoading(true);
+    setError("");
+    try {
+      if (packageEdit && packageEdit._id) {
+        await updatePackage(packageEdit._id, data);
+      } else {
+        await createPackage(data);
+      }
+      setIsShowModalAddPackage(false);
+      await fetchPackages();
+    } catch (err) {
+      setError(err.message || "Lỗi lưu gói tập");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const onSubmitRegistration = (data) => {
-    console.log("Đăng ký mới:", data);
-    setRegistrations([...registrations, { ...data, id: Date.now() }]);
-    setIsShowModalAddRegistration(false);
+  const onSubmitRegistration = async (data) => {
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await registerMembership(data);
+      if (res.success) {
+        setSuccessMsg("Đăng ký gói tập thành công!");
+        setIsShowModalAddRegistration(false);
+        fetchMemberships();
+      } else {
+        setError(res.message || "Đăng ký gói tập thất bại");
+      }
+    } catch (err) {
+      setError(err.message || "Đăng ký gói tập thất bại");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkAsPaid = async (id) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await updatePaymentStatus(id, 'paid');
+      if (res.success) {
+        setSuccessMsg('Cập nhật trạng thái thành công!');
+        fetchMemberships();
+      } else {
+        setError(res.message || 'Cập nhật trạng thái thất bại');
+      }
+    } catch (err) {
+      setError(err.message || 'Cập nhật trạng thái thất bại');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -117,26 +196,26 @@ export default function AdminPackageContent() {
       <table className="table table-bordered">
         <thead>
           <tr>
-            <th>ID</th>
             <th>Tên gói</th>
-            <th>Thời hạn (tháng)</th>
-            <th>Loại</th>
+            <th>Thời hạn (ngày)</th>
+            <th>Số buổi tập</th>
             <th>Giá (VNĐ)</th>
+            <th>HLV riêng</th>
             <th>Hành động</th>
           </tr>
         </thead>
         <tbody>
           {packages.map((pkg) => (
-            <tr key={pkg.id}>
-              <td>{pkg.id}</td>
+            <tr key={pkg._id}>
               <td>{pkg.name}</td>
-              <td>{pkg.duration}</td>
-              <td>{pkg.type}</td>
-              <td>{pkg.price.toLocaleString()}</td>
+              <td>{pkg.durationInDays}</td>
+              <td>{pkg.sessionLimit}</td>
+              <td>{pkg.price?.toLocaleString()}</td>
+              <td>{pkg.withTrainer ? 'Có' : 'Không'}</td>
               <td>
                 <ActionButtons
                   onEdit={() => handleEditPackage(pkg)}
-                  onDelete={() => handleDeletePackage(pkg.id)}
+                  onDelete={() => handleDeletePackage(pkg._id)}
                 />
               </td>
             </tr>
@@ -152,21 +231,34 @@ export default function AdminPackageContent() {
             <th>Khách hàng</th>
             <th>Gói tập</th>
             <th>Ngày đăng ký</th>
-            <th>Trạng thái</th>
+            <th>Ngày kết thúc</th>
+            <th>Trạng thái thanh toán</th>
+            <th>Hành động</th>
           </tr>
         </thead>
         <tbody>
-          {registrations.map((reg) => (
-            <tr key={reg.id}>
-              <td>{reg.id}</td>
-              <td>{reg.customerName}</td>
-              <td>{reg.packageName}</td>
-              <td>{reg.registerDate}</td>
-              <td>{reg.status}</td>
+          {memberships.map((m) => (
+            <tr key={m._id}>
+              <td>{m._id}</td>
+              <td>{m.user?.name || ''}</td>
+              <td>{m.package?.name || ''}</td>
+              <td>{m.startDate ? new Date(m.startDate).toLocaleDateString() : ''}</td>
+              <td>{m.endDate ? new Date(m.endDate).toLocaleDateString() : ''}</td>
+              <td>{m.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}</td>
+              <td>
+                {m.paymentStatus === 'unpaid' && (
+                  <button className="btn btn-sm btn-success" onClick={() => handleMarkAsPaid(m._id)}>
+                    Đánh dấu đã thanh toán
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {error && <div className="alert alert-danger my-2">{error}</div>}
+      {successMsg && <div className="alert alert-success my-2">{successMsg}</div>}
 
       <ModalForm
         show={isShowModalAddPackage}

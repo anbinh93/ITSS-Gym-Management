@@ -129,6 +129,31 @@ const deleteUser = async (req, res) => {
     }
 };
 
+// Đăng ký user bởi admin
+const registerUserByAdmin = async (req, res) => {
+    const { name, email, password, phone, birthYear, role, gender, username } = req.body;
+    try {
+        // Kiểm tra quyền admin
+        const adminUser = await userModel.findById(req.user.id);
+        if (!adminUser || adminUser.role !== "admin") {
+            return res.status(403).json({ success: false, message: "Unauthorized" });
+        }
+        // Kiểm tra trùng email/username
+        if (await userModel.findOne({ email })) return res.json({ success: false, message: "Email already exists" });
+        if (await userModel.findOne({ username })) return res.json({ success: false, message: "Username already exists" });
+        if (!password || password.length < 8) return res.json({ success: false, message: "Password too short" });
+        const hashed = await bcrypt.hash(password, 10);
+        const user = await userModel.create({
+            name, email, password: hashed, phone, birthYear, role, gender, username
+        });
+        const userObj = user.toObject();
+        delete userObj.password;
+        res.status(201).json({ success: true, user: userObj });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
 export {
     registerUser,
     loginUser,
@@ -137,5 +162,6 @@ export {
     getCurrentUser,
     checkAccount,
     updateUser,
-    deleteUser
+    deleteUser,
+    registerUserByAdmin
 };

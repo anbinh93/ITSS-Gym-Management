@@ -20,7 +20,7 @@ export default function AdminStaffContent() {
     try {
       const res = await getAllUsers();
       // Lọc role staff (hoặc các role liên quan)
-      const staffList = (res.users || []).filter(u => u.role === 'staff');
+      const staffList = (res.users || []).filter(u => u.role === 'staff' || u.role === 'coach');
       setStaffs(staffList);
     } catch (err) {
       setError(err.message || "Lỗi tải danh sách nhân sự");
@@ -37,13 +37,18 @@ export default function AdminStaffContent() {
     { name: 'username', label: 'Tên đăng nhập', placeholder: 'staff123', required: true },
     { name: 'name', label: 'Họ và tên', placeholder: 'Nguyễn Văn A', required: true },
     { name: 'email', label: 'Email', type: 'email', placeholder: 'abc@gmail.com', required: true },
+    { name: 'password', label: 'Mật khẩu', type: 'password', placeholder: 'Nhập mật khẩu', required: true },
     { name: 'phone', label: 'Số điện thoại', placeholder: '0245789123' },
     { name: 'gender', label: 'Giới tính', type: 'select', options: [
       { value: 'Male', label: 'Nam' },
       { value: 'Female', label: 'Nữ' },
       { value: 'Other', label: 'Khác' }
     ], required: true },
-    { name: 'status', label: 'Trạng thái', type: 'radio', options: [ { value: 'active', label: 'Đang hoạt động' }, { value: 'inactive', label: 'Không hoạt động' } ] }
+    { name: 'role', label: 'Vai trò', type: 'select', options: [
+      { value: 'staff', label: 'Nhân viên' },
+      { value: 'coach', label: 'Huấn luyện viên' }
+    ], required: true },
+    // { name: 'status', label: 'Trạng thái', type: 'radio', options: [ { value: 'active', label: 'Đang hoạt động' }, { value: 'inactive', label: 'Không hoạt động' } ] }
   ];
 
   const titleModalAddStaff = 'Thêm mới nhân sự';
@@ -81,7 +86,6 @@ export default function AdminStaffContent() {
     setLoading(true);
     setError("");
     try {
-      // Xử lý username: nếu rỗng thì tạo từ email hoặc name
       let username = data.username;
       if (!username || username.trim() === "") {
         const timestamp = Date.now();
@@ -93,28 +97,25 @@ export default function AdminStaffContent() {
           username = "staff_" + timestamp;
         }
       }
-      console.log('Submit staff data:', { ...data, username });
+      const role = data.role || 'staff';
       if (isShowModalAddStaff) {
-        // Đăng ký user mới với role staff
         const result = await register(
           data.name,
           data.email,
-          data.password || 'staff123',
+          data.password,
           data.phone,
           1990,
-          'staff',
+          role,
           data.gender || 'Other',
           username
         );
-        console.log('Register result:', result);
         if (!result.success) {
           setError(result.message || 'Lỗi đăng ký');
           return;
         }
         setIsShowModalAddStaff(false);
       } else if (isShowModalEditStaff && staffEdit && staffEdit._id) {
-        const result = await updateUser(staffEdit._id, { ...data, role: 'staff', username });
-        console.log('Update result:', result);
+        const result = await updateUser(staffEdit._id, { ...data, role, username });
         if (!result.success) {
           setError(result.message || 'Lỗi cập nhật');
           return;
@@ -151,7 +152,7 @@ export default function AdminStaffContent() {
             <th>Tên đăng nhập</th>
             <th>Họ và tên</th>
             <th>Số điện thoại</th>
-            <th>Trạng thái</th>
+            <th>Vai trò</th>
             <th>Hành động</th>
           </tr>
         </thead>
@@ -162,7 +163,7 @@ export default function AdminStaffContent() {
               <td>{staff.username}</td>
               <td>{staff.name}</td>
               <td>{staff.phone}</td>
-              <td>{staff.status}</td>
+              <td>{staff.role === 'coach' ? 'Huấn luyện viên' : 'Nhân viên'}</td>
               <td>
                 <ActionButtons
                   onEdit={() => handleEditStaff(staff)}

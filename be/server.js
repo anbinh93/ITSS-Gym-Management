@@ -10,6 +10,7 @@ import equipmentRouter from "./routes/equipmentRoute.js";
 import feedbackRouter from "./routes/feedbackRoute.js";
 import statisticRouter from "./routes/statisticRoute.js";
 import gymRoomRouter from "./routes/gymRoomRoute.js";
+import workoutScheduleRouter from "./routes/workoutScheduleRoute.js";
 
 
 // app config
@@ -31,6 +32,7 @@ app.use("/api/equipment", equipmentRouter);
 app.use("/api/feedbacks", feedbackRouter);
 app.use("/api/statistics", statisticRouter);
 app.use("/api/gymroom", gymRoomRouter);
+app.use("/api/schedule", workoutScheduleRouter);
 
 
 app.get("/",(req,res)=>{

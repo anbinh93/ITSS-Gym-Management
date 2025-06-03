@@ -1,7 +1,9 @@
 import express from "express";
 import {
     registerMembership,
-    getMembershipsByUser
+    getMembershipsByUser,
+    getAllMemberships,
+    updatePaymentStatus
 } from "../controllers/membershipController.js";
 import authMiddleware from "../middleware/auth.js";
 
@@ -9,5 +11,7 @@ const membershipRouter = express.Router();
 
 membershipRouter.post("/", authMiddleware, registerMembership);
 membershipRouter.get("/user/:userId", authMiddleware, getMembershipsByUser);
+membershipRouter.get("/all", authMiddleware, getAllMemberships);
+membershipRouter.patch("/:id/payment-status", authMiddleware, updatePaymentStatus);
 
 export default membershipRouter;
