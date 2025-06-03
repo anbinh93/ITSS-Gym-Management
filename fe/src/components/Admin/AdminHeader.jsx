@@ -6,8 +6,9 @@ const AdminHeader = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/');
+    localStorage.removeItem('gym_token');
+    localStorage.removeItem('gym_user');
+    navigate('/login');
   };
 
   return (

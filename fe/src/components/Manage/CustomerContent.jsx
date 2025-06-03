@@ -78,7 +78,7 @@ export default function CustomerContent() {
       ]
     },
     { name: "username", label: "Tên đăng nhập", placeholder: "Nhập username" },
-    { name: "password", label: "Mật khẩu", type: "password", placeholder: "Nhập mật khẩu" },
+    { name: "password", label: "Mật khẩu", type: "password", placeholder: "Nhập mật khẩu", required: true },
   ];
 
   // Edit customer fields (without password)
@@ -145,10 +145,10 @@ export default function CustomerContent() {
       const customerData = {
         name: data.name,
         email: data.email,
-        password: data.password || '123456', // Default password
+        password: data.password,
         phone: data.phone,
         birthYear: parseInt(data.birthYear),
-        role: 'member', // Set role as member for customers
+        role: 'user',
         gender: data.gender || 'Other',
         username: username
       };

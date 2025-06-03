@@ -5,8 +5,9 @@ const UserHeader = () => {
     const navigate = useNavigate();
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        navigate('/'); // chuyển về homepage
+        localStorage.removeItem('gym_token');
+        localStorage.removeItem('gym_user');
+        navigate('/login');
     };
 
     return (

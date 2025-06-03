@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "../ui/card";
 import { CiCalendar } from "react-icons/ci";
 import { CiUser } from "react-icons/ci";
 import { FaRegShareFromSquare } from "react-icons/fa6";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { getRevenue, getNewMembersStats, getStaffPerformance } from '../../services/api';
 
 // Hàm tạo dữ liệu mẫu cho các khoảng thời gian
 const generateRevenueData = (period) => {
@@ -45,23 +46,48 @@ const generateRevenueData = (period) => {
 
 export default function AdminReportPage() {
   const [selectedPeriod, setSelectedPeriod] = useState("month");
+  const [revenue, setRevenue] = useState(0);
+  const [memberStats, setMemberStats] = useState({ newMembers: 0, renewals: 0, sessionsUsed: 0 });
+  const [staffPerformance, setStaffPerformance] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Lấy dữ liệu doanh thu dựa trên khoảng thời gian được chọn
+  // Dữ liệu chart mẫu
   const revenueData = generateRevenueData(selectedPeriod);
 
-  // Báo cáo về đăng ký mới và gia hạn
-  const memberStats = {
-    newMembers: 30,
-    renewals: 15,
-    sessionsUsed: 120,
-  };
-
-  // Đánh giá hiệu suất nhân viên
-  const staffPerformance = [
-    { name: "Nguyễn Văn A", feedback: 4.5, tasks: 10 },
-    { name: "Trần Thị B", feedback: 4.8, tasks: 12 },
-    { name: "Lê Văn C", feedback: 4.2, tasks: 9 },
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const [revenueRes, memberRes, staffRes] = await Promise.all([
+          getRevenue(),
+          getNewMembersStats(),
+          getStaffPerformance()
+        ]);
+        setRevenue(revenueRes.revenue || 0);
+        setMemberStats({
+          newMembers: memberRes.total || 0,
+          renewals: memberRes.renewals || 0, // Nếu backend có trường renewals
+          sessionsUsed: memberRes.sessionsUsed || 0 // Nếu backend có trường sessionsUsed
+        });
+        if (staffRes.stats && typeof staffRes.stats === 'object') {
+          setStaffPerformance(Object.entries(staffRes.stats).map(([name, stat]) => ({
+            name,
+            feedback: stat.sum / (stat.total || 1),
+            tasks: stat.total
+          })));
+        } else {
+          setStaffPerformance([]);
+        }
+      } catch (err) {
+        setError('Lỗi tải dữ liệu báo cáo');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [selectedPeriod]); // Nếu muốn fetch lại khi đổi kỳ báo cáo
 
   // Hàm định dạng tiêu đề dựa trên khoảng thời gian
   const getPeriodLabel = (period) => {
@@ -97,10 +123,15 @@ export default function AdminReportPage() {
           <option value="year">Năm</option>
         </select>
       </div>
-
+      {loading && <div>Đang tải dữ liệu...</div>}
+      {error && <div className="text-danger">{error}</div>}
       <Card>
         <CardContent className="p-4">
           <h3 className="font-semibold mb-2">Doanh thu ({getPeriodLabel(selectedPeriod)})</h3>
+          {/* Tổng doanh thu thực tế từ backend */}
+          <div style={{ fontSize: 20, fontWeight: 600, color: '#4f46e5', marginBottom: 12 }}>
+            Tổng doanh thu thực tế: {revenue.toLocaleString('vi-VN')} VNĐ
+          </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -121,7 +152,6 @@ export default function AdminReportPage() {
           </ResponsiveContainer>
         </CardContent>
       </Card>
-
       <Card>
         <CardContent className="p-4">
           <div className="card shadow-sm">
@@ -170,13 +200,11 @@ export default function AdminReportPage() {
                       </div>
                     </div>
                   </div>
-
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
-
       <Card>
         <CardContent className="p-4">
           <h3 className="font-semibold mb-2">Hiệu suất nhân viên</h3>
@@ -192,7 +220,7 @@ export default function AdminReportPage() {
               {staffPerformance.map((staff, idx) => (
                 <tr key={idx} className="border-t">
                   <td className="p-2">{staff.name}</td>
-                  <td className="p-2">{staff.feedback}</td>
+                  <td className="p-2">{staff.feedback?.toFixed(2)}</td>
                   <td className="p-2">{staff.tasks}</td>
                 </tr>
               ))}

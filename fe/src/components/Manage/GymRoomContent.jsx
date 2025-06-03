@@ -36,6 +36,10 @@ export default function GymRoomContent() {
     { name: 'location', label: 'Vị trí', placeholder: 'Nhập vị trí' },
     { name: 'capacity', label: 'Sức chứa', type: 'number', placeholder: 'Nhập sức chứa' },
     { name: 'description', label: 'Mô tả', placeholder: 'Nhập mô tả' },
+    { name: 'status', label: 'Tình trạng', type: 'select', options: [
+      { value: 'available', label: 'Sẵn sàng' },
+      { value: 'unavailable', label: 'Không sẵn sàng' }
+    ], required: true }
   ];
 
   const titleModalAddRoom = "Thêm mới phòng tập";
@@ -101,6 +105,7 @@ export default function GymRoomContent() {
             <th>Vị trí</th>
             <th>Sức chứa</th>
             <th>Mô tả</th>
+            <th>Tình trạng</th>
             <th>Thao tác</th>
           </tr>
         </thead>
@@ -111,6 +116,7 @@ export default function GymRoomContent() {
               <td>{room.location}</td>
               <td>{room.capacity}</td>
               <td>{room.description}</td>
+              <td>{room.status === 'available' ? 'Sẵn sàng' : 'Không sẵn sàng'}</td>
               <td>
                 <ActionButtons
                   onEdit={() => handleEditRoom(room)}

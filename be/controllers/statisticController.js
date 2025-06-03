@@ -5,7 +5,7 @@ import { feedbackModel } from "../models/feedbackModel.js";
 // Doanh thu cơ bản (tổng tiền từ các gói đã mua)
 const getRevenue = async (req, res) => {
     try {
-        const data = await membershipModel.find().populate("package");
+        const data = await membershipModel.find({ paymentStatus: 'paid' }).populate("package");
         const revenue = data.reduce((sum, m) => sum + (m.package?.price || 0), 0);
         res.json({ success: true, revenue });
     } catch {

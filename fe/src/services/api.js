@@ -302,4 +302,6 @@ export async function getStaffPerformance() {
     console.error('getStaffPerformance error:', error);
     return { success: false, stats: {} };
   }
-} 
+}
+
+export { fetchWithAuth }; 
