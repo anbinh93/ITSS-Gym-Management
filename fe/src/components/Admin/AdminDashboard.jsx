@@ -230,16 +230,16 @@ export default function AdminDashboard() {
               <div className="quick-stats">
                 <div className="quick-stat-item">
                   <div className="quick-stat-value">
-                    {revenue.toLocaleString('vi-VN')} VNĐ
+                    {(revenue || 0).toLocaleString('vi-VN')} VNĐ
                   </div>
                   <div className="quick-stat-label">Doanh thu</div>
                 </div>
                 <div className="quick-stat-item">
-                  <div className="quick-stat-value">{memberStats.total || 0}</div>
+                  <div className="quick-stat-value">{memberStats?.total || 0}</div>
                   <div className="quick-stat-label">Tổng hội viên</div>
                 </div>
                 <div className="quick-stat-item">
-                  <div className="quick-stat-value">{Object.keys(staffStats).length}</div>
+                  <div className="quick-stat-value">{Object.keys(staffStats || {}).length}</div>
                   <div className="quick-stat-label">Nhân viên hoạt động</div>
                 </div>
               </div>

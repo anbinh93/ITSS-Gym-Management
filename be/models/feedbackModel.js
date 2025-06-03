@@ -6,6 +6,16 @@ const feedbackSchema = new mongoose.Schema({
   message: String,
   target: { type: String, enum: ['GYM', 'STAFF', 'TRAINER'] },
   relatedUser: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  status: { 
+    type: String, 
+    enum: ['PENDING', 'IN_PROGRESS', 'RESOLVED', 'REJECTED'],
+    default: 'PENDING'
+  },
+  adminResponse: {
+    message: String,
+    updatedAt: Date,
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }
+  }
 }, { timestamps: true });
 
 export const feedbackModel = mongoose.models.Feedback || mongoose.model("Feedback", feedbackSchema);

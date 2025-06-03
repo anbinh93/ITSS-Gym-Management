@@ -2,13 +2,20 @@ const API_BASE = process.env.REACT_APP_API_URL || "";
 
 // Helper function to handle auth errors
 const handleAuthError = (response) => {
-  if (!response.success && response.message === "Not Authorized Login Again") {
+  if (!response.success && (
+    response.message === "Not Authorized Login Again" ||
+    response.message === "Token expired" ||
+    response.message === "Invalid token" ||
+    response.status === 401
+  )) {
     // Clear stored auth data
     localStorage.removeItem('gym_token');
     localStorage.removeItem('gym_user');
     
-    // Redirect to login
-    window.location.href = '/login';
+    // Only redirect if not already on login page
+    if (!window.location.pathname.includes('/login')) {
+      window.location.href = '/login';
+    }
     return true;
   }
   return false;
@@ -17,6 +24,13 @@ const handleAuthError = (response) => {
 // Enhanced fetch function with auth error handling
 const fetchWithAuth = async (url, options = {}) => {
   const token = localStorage.getItem('gym_token');
+  
+  // If no token and not on login page, redirect to login
+  if (!token && !window.location.pathname.includes('/login')) {
+    window.location.href = '/login';
+    throw new Error('No authentication token found');
+  }
+  
   const headers = {
     'Content-Type': 'application/json',
     ...options.headers,
@@ -26,34 +40,67 @@ const fetchWithAuth = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
   
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Check for auth errors
+    if (handleAuthError(data)) {
+      throw new Error('Authentication expired');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('API request failed:', error);
+    throw error;
   }
-  
-  const data = await response.json();
-  
-  // Check for auth errors
-  if (handleAuthError(data)) {
-    throw new Error('Authentication expired');
-  }
-  
-  return data;
 };
 
 export async function login(emailOrUsername, password) {
-  console.log('Calling API login:', { emailOrUsername, password });
-  const res = await fetch(`${API_BASE}/api/user/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ emailOrUsername, password })
-  });
-  if (!res.ok) throw new Error("Login failed");
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/user/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emailOrUsername, password })
+    });
+
+    if (!res.ok) {
+      throw new Error("Login failed");
+    }
+
+    const data = await res.json();
+    
+    if (data.success && data.token) {
+      // Store token and user data
+      localStorage.setItem('gym_token', data.token);
+      localStorage.setItem('gym_user', JSON.stringify(data.user));
+      
+      // Redirect based on user role
+      const role = data.user.role;
+      if (role === 'ADMIN') {
+        window.location.href = '/admin/dashboard';
+      } else if (role === 'STAFF') {
+        window.location.href = '/staff/dashboard';
+      } else {
+        window.location.href = '/dashboard';
+      }
+    } else {
+      throw new Error(data.message || "Login failed");
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
 }
 
 export async function register(name, email, password, phone, birthYear, role, gender, username) {
@@ -71,9 +118,31 @@ export async function getCurrentUser() {
 }
 
 export async function logout() {
-  localStorage.removeItem("gym_token");
-  localStorage.removeItem("gym_user");
-  return { message: "Logout successful" };
+  try {
+    // Call logout API to invalidate token on server
+    await fetch(`${API_BASE}/api/user/logout`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('gym_token') || ''}`
+      }
+    });
+
+    // Clear local storage regardless of API response
+    localStorage.removeItem("gym_token");
+    localStorage.removeItem("gym_user");
+    
+    // Force redirect to login page
+    window.location.href = '/login';
+    
+    return { success: true, message: "Logout successful" };
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Still clear local storage and redirect even if API call fails
+    localStorage.removeItem("gym_token");
+    localStorage.removeItem("gym_user");
+    window.location.href = '/login';
+    return { success: false, message: "Logout failed but cleared local data" };
+  }
 }
 
 // ===== GYM ROOM API =====
@@ -258,7 +327,11 @@ export async function deletePackage(id) {
 
 // ===== FEEDBACK API =====
 export async function getFeedbacksByTarget(target) {
-  const res = await fetch(`${API_BASE}/api/feedbacks/target/${target}`);
+  const res = await fetch(`${API_BASE}/api/feedbacks/target/${target}`, {
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('gym_token') || ''}`
+    }
+  });
   if (!res.ok) throw new Error('Lấy phản hồi thất bại');
   return res.json();
 }
@@ -273,6 +346,19 @@ export async function submitFeedback(data) {
     body: JSON.stringify(data)
   });
   if (!res.ok) throw new Error('Gửi phản hồi thất bại');
+  return res.json();
+}
+
+export async function updateFeedbackStatus(feedbackId, updateData) {
+  const res = await fetch(`${API_BASE}/api/feedbacks/${feedbackId}/status`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('gym_token') || ''}`
+    },
+    body: JSON.stringify(updateData)
+  });
+  if (!res.ok) throw new Error('Cập nhật trạng thái phản hồi thất bại');
   return res.json();
 }
 
