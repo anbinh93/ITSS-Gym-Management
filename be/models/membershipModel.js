@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const membershipSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  coach: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   package: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },
   startDate: Date,
   endDate: Date,

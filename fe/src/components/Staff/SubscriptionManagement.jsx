@@ -1,32 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Table } from "react-bootstrap";
 import ButtonAddNew from "../Button/ButtonAddNew";
 import ActionButtons from "../Button/ActionButtons";
 import ModalForm from "../Admin/Modal/ModalForm"; 
+import { getAllMemberships } from '../../services/membershipApi';
 
 const SubscriptionManagement = () => {
-  const [subscriptions, setSubscriptions] = useState([
-    {
-      id: 1,
-      name: "Nguyễn Văn A",
-      registrationDate: "2023-08-10",
-      type: "monthly",
-      renewalStatus: "renewed",
-    },
-    {
-      id: 2,
-      name: "Trần Thị B",
-      registrationDate: "2023-09-12",
-      type: "yearly",
-      renewalStatus: "pending",
-    },
-  ]);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [isShowModalAdd, setIsShowModalAdd] = useState(false);
   const [isShowModalEdit, setIsShowModalEdit] = useState(false);
   const [selectedSub, setSelectedSub] = useState({}); // để sửa
+
+  // Fetch memberships from backend
+  useEffect(() => {
+    setLoading(true);
+    getAllMemberships()
+      .then(res => {
+        if (res.success && Array.isArray(res.data.memberships || res.data)) {
+          // Map về format FE cần
+          const mapped = (res.data.memberships || res.data).map(m => ({
+            id: m._id,
+            name: m.user?.name || '',
+            registrationDate: m.startDate ? new Date(m.startDate).toLocaleDateString('vi-VN') : '',
+            endDate: m.endDate ? new Date(m.endDate).toLocaleDateString('vi-VN') : '',
+            type: m.package?.durationInDays >= 365 ? 'yearly' : (m.package?.durationInDays >= 28 ? 'monthly' : 'daily'),
+            packageName: m.package?.name || '',
+            renewalStatus: m.paymentStatus === 'paid' ? (new Date(m.endDate) < new Date() ? 'expired' : 'renewed') : 'pending',
+            paymentStatus: m.paymentStatus,
+            sessionsRemaining: m.sessionsRemaining,
+          }));
+          setSubscriptions(mapped);
+        } else {
+          setError(res.message || 'Không thể tải danh sách đăng ký.');
+        }
+      })
+      .catch(() => setError('Không thể kết nối tới server.'))
+      .finally(() => setLoading(false));
+  }, []);
 
   // Lọc theo type và status
   const filteredData = subscriptions.filter((sub) => {
@@ -125,21 +140,28 @@ const SubscriptionManagement = () => {
         </select>
       </form>
 
+      {loading && <div className="text-center my-3">Đang tải dữ liệu...</div>}
+      {error && <div className="alert alert-danger my-3">{error}</div>}
+
       <Table bordered hover responsive className="mt-3">
         <thead className="table-light">
           <tr>
             <th>ID</th>
             <th>Họ và tên</th>
+            <th>Gói tập</th>
             <th>Ngày đăng ký</th>
+            <th>Ngày kết thúc</th>
             <th>Loại đăng ký</th>
             <th>Tình trạng gia hạn</th>
+            <th>Trạng thái thanh toán</th>
+            <th>Số buổi còn lại</th>
             <th>Thao tác</th>
           </tr>
         </thead>
         <tbody>
           {filteredData.length === 0 ? (
             <tr>
-              <td colSpan="6" className="text-center">
+              <td colSpan="9" className="text-center">
                 Không có dữ liệu
               </td>
             </tr>
@@ -148,7 +170,9 @@ const SubscriptionManagement = () => {
               <tr key={sub.id}>
                 <td>{sub.id}</td>
                 <td>{sub.name}</td>
+                <td>{sub.packageName}</td>
                 <td>{sub.registrationDate}</td>
+                <td>{sub.endDate}</td>
                 <td>
                   {{
                     daily: "Theo buổi",
@@ -163,6 +187,8 @@ const SubscriptionManagement = () => {
                     expired: "Hết hạn",
                   }[sub.renewalStatus]}
                 </td>
+                <td>{sub.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}</td>
+                <td>{sub.sessionsRemaining ?? ''}</td>
                 <td>
                 <ActionButtons
                   onEdit={() => handleEditSub(sub)}

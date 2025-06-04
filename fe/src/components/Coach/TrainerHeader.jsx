@@ -22,6 +22,13 @@ const TrainerHeader = () => {
                     height="60"
                     className="rounded-circle"
                 />
+                <button
+                    className="btn btn-outline-danger ms-3"
+                    style={{ height: 40 }}
+                    onClick={handleLogout}
+                >
+                    Đăng xuất
+                </button>
             </div>
         </header>
     );

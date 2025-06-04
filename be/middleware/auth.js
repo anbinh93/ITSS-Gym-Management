@@ -21,8 +21,10 @@ const authMiddleware = async (req, res, next) => {
         if (!req.body) {
             req.body = {};
         }
-        
-        req.body.userId = token_decode.id;
+        // Chỉ gán userId nếu chưa có (user tự đăng ký), nếu đã có thì giữ nguyên (admin đăng ký hộ)
+        if (!req.body.userId) {
+            req.body.userId = token_decode.id;
+        }
         req.user = { id: token_decode.id };
         next();
     } catch (error) {

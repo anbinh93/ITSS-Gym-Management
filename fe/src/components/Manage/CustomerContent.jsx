@@ -3,7 +3,8 @@ import ButtonAddNew from "../Button/ButtonAddNew";
 import ModalForm from "../Admin/Modal/ModalForm";
 import ActionButtons from "../Button/ActionButtons";
 import UsageHistoryModal from "../Admin/Modal/UsageHistoryModal";
-import { getAllUsers, register, updateUser, deleteUser } from '../../services/api';
+import { getAllUsers, register, updateUser, deleteUser, getAllPackages } from '../../services/api';
+import { registerMembership } from '../../services/membershipApi';
 
 export default function CustomerContent() {
   // State management
@@ -22,9 +23,20 @@ export default function CustomerContent() {
   const [historyCustomerName, setHistoryCustomerName] = useState("");
   const [historyData, setHistoryData] = useState([]);
 
+  // Register modal states
+  const [isShowModalRegister, setIsShowModalRegister] = useState(false);
+  const [registerUserId, setRegisterUserId] = useState("");
+  const [packages, setPackages] = useState([]);
+  const [coaches, setCoaches] = useState([]);
+  const [registerMsg, setRegisterMsg] = useState("");
+  const [registerError, setRegisterError] = useState("");
+  const [selectedPackageId, setSelectedPackageId] = useState("");
+
   // Fetch customers on component mount
   useEffect(() => {
     fetchCustomers();
+    fetchPackages();
+    fetchCoaches();
   }, []);
 
   const fetchCustomers = async () => {
@@ -46,6 +58,25 @@ export default function CustomerContent() {
       setError("Lỗi kết nối API");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPackages = async () => {
+    try {
+      const res = await getAllPackages();
+      setPackages(res.packages || []);
+    } catch (err) {
+      setPackages([]);
+    }
+  };
+
+  const fetchCoaches = async () => {
+    try {
+      const res = await getAllUsers();
+      const coachUsers = (res.users || []).filter(u => u.role === 'coach');
+      setCoaches(coachUsers);
+    } catch (err) {
+      setCoaches([]);
     }
   };
 
@@ -213,6 +244,66 @@ export default function CustomerContent() {
     customer.phone?.includes(searchTerm)
   );
 
+  const handleOpenRegister = (userId) => {
+    setRegisterUserId(userId);
+    setIsShowModalRegister(true);
+    setRegisterMsg("");
+    setRegisterError("");
+    setSelectedPackageId("");
+  };
+
+  const handleCloseRegister = () => {
+    setIsShowModalRegister(false);
+    setRegisterUserId("");
+    setRegisterMsg("");
+    setRegisterError("");
+    setSelectedPackageId("");
+  };
+
+  const selectedPackage = packages.find(pkg => pkg._id === selectedPackageId);
+  const registerFields = [
+    {
+      name: "packageId",
+      label: "Gói tập",
+      type: "select",
+      options: packages.map((pkg) => ({ label: pkg.name, value: pkg._id })),
+      onChange: (e) => setSelectedPackageId(e.target.value),
+    },
+    ...(selectedPackage && selectedPackage.withTrainer ? [{
+      name: "coach",
+      label: "Huấn luyện viên phụ trách",
+      type: "select",
+      options: coaches.map((c) => ({ label: `${c.name} (${c.email})`, value: c._id })),
+    }] : []),
+    {
+      name: "paymentStatus",
+      label: "Tình trạng thanh toán",
+      type: "radio",
+      options: [
+        { value: "paid", label: "Đã thanh toán" },
+        { value: "unpaid", label: "Chưa thanh toán" },
+      ],
+    },
+  ];
+
+  const onSubmitRegister = async (data) => {
+    setRegisterMsg("");
+    setRegisterError("");
+    try {
+      const submitData = { ...data, userId: registerUserId };
+      if (submitData.coach === "") delete submitData.coach;
+      const res = await registerMembership(submitData);
+      if (res.success) {
+        setRegisterMsg("Đăng ký gói tập thành công!");
+        setTimeout(() => handleCloseRegister(), 1200);
+      } else {
+        setRegisterError(res.message || "Đăng ký gói tập thất bại");
+      }
+    } catch (err) {
+      setRegisterError("Đăng ký gói tập thất bại");
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -306,6 +397,9 @@ export default function CustomerContent() {
                     onEdit={() => handleEditCustomer(customer)}
                     onDelete={() => handleDeleteCustomer(customer._id)}
                   />
+                  <button className="btn btn-sm btn-outline-primary mt-1" onClick={() => handleOpenRegister(customer._id)}>
+                    Đăng ký gói tập
+                  </button>
                 </td>
               </tr>
             ))
@@ -337,6 +431,18 @@ export default function CustomerContent() {
         data={historyData}
         customerName={historyCustomerName}
       />
+
+      <ModalForm
+        show={isShowModalRegister}
+        handleClose={handleCloseRegister}
+        title="Đăng ký gói tập cho hội viên"
+        fields={registerFields}
+        data={{}}
+        onSubmit={onSubmitRegister}
+      />
+
+      {registerMsg && <div className="alert alert-success my-2">{registerMsg}</div>}
+      {registerError && <div className="alert alert-danger my-2">{registerError}</div>}
     </div>
   );
 }

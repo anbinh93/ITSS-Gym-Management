@@ -18,6 +18,8 @@ export default function AdminPackageContent() {
   const [isShowModalAddRegistration, setIsShowModalAddRegistration] = useState(false);
   const [packageEdit, setPackageEdit] = useState({});
 
+  const [coaches, setCoaches] = useState([]);
+
   // Fetch packages and users from backend
   const fetchPackages = async () => {
     setLoading(true);
@@ -47,6 +49,20 @@ export default function AdminPackageContent() {
     }
   };
 
+  const fetchCoaches = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await getAllUsers();
+      const coachUsers = (res.users || []).filter(u => u.role === 'coach');
+      setCoaches(coachUsers);
+    } catch (err) {
+      setError(err.message || "Lỗi tải danh sách HLV");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchMemberships = async () => {
     setLoading(true);
     setError("");
@@ -63,6 +79,7 @@ export default function AdminPackageContent() {
   useEffect(() => {
     fetchPackages();
     fetchUsers();
+    fetchCoaches();
     fetchMemberships();
   }, []);
 
@@ -77,6 +94,8 @@ export default function AdminPackageContent() {
     ] },
   ];
 
+  const [selectedPackageId, setSelectedPackageId] = useState("");
+  const selectedPackage = packages.find(pkg => pkg._id === selectedPackageId);
   const registrationFields = [
     {
       name: "userId",
@@ -89,7 +108,14 @@ export default function AdminPackageContent() {
       label: "Gói tập",
       type: "select",
       options: packages.map((pkg) => ({ label: pkg.name, value: pkg._id })),
+      onChange: (e) => setSelectedPackageId(e.target.value),
     },
+    ...(selectedPackage && selectedPackage.withTrainer ? [{
+      name: "coach",
+      label: "Huấn luyện viên phụ trách",
+      type: "select",
+      options: coaches.map((c) => ({ label: `${c.name} (${c.email})`, value: c._id })),
+    }] : []),
     {
       name: "paymentStatus",
       label: "Tình trạng thanh toán",
@@ -149,7 +175,9 @@ export default function AdminPackageContent() {
     setError("");
     setSuccessMsg("");
     try {
-      const res = await registerMembership(data);
+      const submitData = { ...data };
+      if (submitData.coach === "") delete submitData.coach;
+      const res = await registerMembership(submitData);
       if (res.success) {
         setSuccessMsg("Đăng ký gói tập thành công!");
         setIsShowModalAddRegistration(false);
