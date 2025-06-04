@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Controller } from 'react-bootstrap-icons';
 
 const AuthContext = createContext(null);
 
@@ -25,6 +26,8 @@ export const AuthProvider = ({ children }) => {
     const login = (userData, token) => {
         setUser(userData);
         localStorage.setItem('gym_token', token);
+        console.log(userData);
+        console.log(token);
     };
 
     const logout = () => {

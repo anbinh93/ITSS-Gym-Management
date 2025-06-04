@@ -4,7 +4,7 @@ import ModalForm from "../Admin/Modal/ModalForm";
 import ActionButtons from "../Button/ActionButtons";
 import UsageHistoryModal from "../Admin/Modal/UsageHistoryModal";
 import { getAllUsers, register, updateUser, deleteUser, getAllPackages } from '../../services/api';
-import { registerMembership } from '../../services/membershipApi';
+import { registerMembership, getAllMemberships, updateCoach } from '../../services/membershipApi';
 
 export default function CustomerContent() {
   // State management
@@ -31,12 +31,18 @@ export default function CustomerContent() {
   const [registerMsg, setRegisterMsg] = useState("");
   const [registerError, setRegisterError] = useState("");
   const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [coachUpdateMsg, setCoachUpdateMsg] = useState("");
+  const [coachUpdateError, setCoachUpdateError] = useState("");
+
+  // New state for memberships
+  const [memberships, setMemberships] = useState([]);
 
   // Fetch customers on component mount
   useEffect(() => {
     fetchCustomers();
     fetchPackages();
     fetchCoaches();
+    fetchMemberships();
   }, []);
 
   const fetchCustomers = async () => {
@@ -77,6 +83,15 @@ export default function CustomerContent() {
       setCoaches(coachUsers);
     } catch (err) {
       setCoaches([]);
+    }
+  };
+
+  const fetchMemberships = async () => {
+    try {
+      const res = await getAllMemberships();
+      setMemberships(res.data?.memberships || res.data || []);
+    } catch (err) {
+      setMemberships([]);
     }
   };
 
@@ -304,6 +319,16 @@ export default function CustomerContent() {
     }
   };
 
+  // Helper: Lấy membership active withTrainer cho user
+  const getActiveMembershipWithTrainer = (userId) => {
+    const userMemberships = memberships.filter(m => m.user && m.user._id === userId);
+    // Ưu tiên membership active, nếu không có thì lấy gần nhất có withTrainer
+    const active = userMemberships.find(m => m.package?.withTrainer && m.status === 'active');
+    if (active) return active;
+    // Nếu không có active, lấy gần nhất có withTrainer
+    return userMemberships.reverse().find(m => m.package?.withTrainer);
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -363,46 +388,83 @@ export default function CustomerContent() {
             <th>Username</th>
             <th>Ngày đăng ký</th>
             <th>Lịch sử tập luyện</th>
+            <th>Huấn luyện viên</th>
             <th>Thao tác</th>
           </tr>
         </thead>
         <tbody>
           {filteredCustomers.length === 0 ? (
             <tr>
-              <td colSpan="10" className="text-center text-muted">
+              <td colSpan="11" className="text-center text-muted">
                 {searchTerm ? 'Không tìm thấy hội viên nào' : 'Chưa có hội viên nào'}
               </td>
             </tr>
           ) : (
-            filteredCustomers.map((customer, index) => (
-              <tr key={customer._id}>
-                <td>{index + 1}</td>
-                <td>{customer.name}</td>
-                <td>{calculateAge(customer.birthYear)}</td>
-                <td>{customer.email}</td>
-                <td>{customer.phone || 'N/A'}</td>
-                <td>{customer.gender === 'Male' ? 'Nam' : customer.gender === 'Female' ? 'Nữ' : 'Khác'}</td>
-                <td>{customer.username}</td>
-                <td>{formatDate(customer.createdAt)}</td>
-                <td>
-                  <button
-                    className="btn btn-link btn-sm text-primary"
-                    onClick={() => toggleHistory(customer)}
-                  >
-                    Xem lịch sử
-                  </button>
-                </td>
-                <td>
-                  <ActionButtons
-                    onEdit={() => handleEditCustomer(customer)}
-                    onDelete={() => handleDeleteCustomer(customer._id)}
-                  />
-                  <button className="btn btn-sm btn-outline-primary mt-1" onClick={() => handleOpenRegister(customer._id)}>
-                    Đăng ký gói tập
-                  </button>
-                </td>
-              </tr>
-            ))
+            filteredCustomers.map((customer, index) => {
+              const membership = getActiveMembershipWithTrainer(customer._id);
+              return (
+                <tr key={customer._id}>
+                  <td>{index + 1}</td>
+                  <td>{customer.name}</td>
+                  <td>{calculateAge(customer.birthYear)}</td>
+                  <td>{customer.email}</td>
+                  <td>{customer.phone || 'N/A'}</td>
+                  <td>{customer.gender === 'Male' ? 'Nam' : customer.gender === 'Female' ? 'Nữ' : 'Khác'}</td>
+                  <td>{customer.username}</td>
+                  <td>{formatDate(customer.createdAt)}</td>
+                  <td>
+                    <button
+                      className="btn btn-link btn-sm text-primary"
+                      onClick={() => toggleHistory(customer)}
+                    >
+                      Xem lịch sử
+                    </button>
+                  </td>
+                  <td>
+                    {membership && membership.package?.withTrainer ? (
+                      <select
+                        className="form-select form-select-sm"
+                        value={membership.coach?._id || ''}
+                        onChange={async (e) => {
+                          const coachId = e.target.value;
+                          setCoachUpdateMsg("");
+                          setCoachUpdateError("");
+                          try {
+                            const res = await updateCoach(membership._id, coachId);
+                            if (res.success) {
+                              setCoachUpdateMsg("Cập nhật HLV thành công!");
+                              fetchMemberships();
+                            } else {
+                              setCoachUpdateError(res.message || "Cập nhật HLV thất bại");
+                            }
+                          } catch (err) {
+                            setCoachUpdateError("Cập nhật HLV thất bại");
+                          }
+                        }}
+                      >
+                        <option value="">-- Chọn HLV --</option>
+                        {coaches.map(c => (
+                          <option key={c._id} value={c._id}>
+                            {c.name} ({c.email})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-muted small">Không áp dụng</span>
+                    )}
+                  </td>
+                  <td>
+                    <ActionButtons
+                      onEdit={() => handleEditCustomer(customer)}
+                      onDelete={() => handleDeleteCustomer(customer._id)}
+                    />
+                    <button className="btn btn-sm btn-outline-primary mt-1" onClick={() => handleOpenRegister(customer._id)}>
+                      Đăng ký gói tập
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
           )}
         </tbody>
       </table>
@@ -443,6 +505,8 @@ export default function CustomerContent() {
 
       {registerMsg && <div className="alert alert-success my-2">{registerMsg}</div>}
       {registerError && <div className="alert alert-danger my-2">{registerError}</div>}
+      {coachUpdateMsg && <div className="alert alert-success my-2">{coachUpdateMsg}</div>}
+      {coachUpdateError && <div className="alert alert-danger my-2">{coachUpdateError}</div>}
     </div>
   );
 }

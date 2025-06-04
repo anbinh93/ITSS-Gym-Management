@@ -4,7 +4,9 @@ import {
     getMembershipsByUser,
     getAllMemberships,
     updatePaymentStatus,
-    getActiveMembership
+    getActiveMembership,
+    updateCoach,
+    updateMembershipStatus
 } from "../controllers/membershipController.js";
 import authMiddleware from "../middleware/auth.js";
 
@@ -15,5 +17,7 @@ membershipRouter.get("/user/:userId", authMiddleware, getMembershipsByUser);
 membershipRouter.get("/all", authMiddleware, getAllMemberships);
 membershipRouter.patch("/:id/payment-status", authMiddleware, updatePaymentStatus);
 membershipRouter.get("/active/:userId", authMiddleware, getActiveMembership);
+membershipRouter.patch("/:id/coach", authMiddleware, updateCoach);
+membershipRouter.patch("/:id/status", authMiddleware, updateMembershipStatus);
 
 export default membershipRouter;

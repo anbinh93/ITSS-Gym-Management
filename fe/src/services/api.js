@@ -16,33 +16,38 @@ const handleAuthError = (response) => {
 
 // Enhanced fetch function with auth error handling
 const fetchWithAuth = async (url, options = {}) => {
-  const token = localStorage.getItem('gym_token');
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  try{
+        const token = localStorage.getItem('gym_token');
+        const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("fetchWithAuth data:", data);
+      // Check for auth errors
+      if (handleAuthError(data)) {
+        throw new Error('Authentication expired');
+      }
+      
+      return data;
+  }catch(error){
+    console.log("fetchWithAuth error:", error);
   }
   
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  
-  // Check for auth errors
-  if (handleAuthError(data)) {
-    throw new Error('Authentication expired');
-  }
-  
-  return data;
 };
 
 export async function login(emailOrUsername, password) {
@@ -302,6 +307,26 @@ export async function getStaffPerformance() {
     console.error('getStaffPerformance error:', error);
     return { success: false, stats: {} };
   }
+}
+
+// ===== WORKOUT SCHEDULE API =====
+export async function getUserWorkoutSchedule(userId) {
+  return await fetchWithAuth(`${API_BASE}/api/schedule/user/${userId}`);
+}
+
+export async function getCoachWorkoutSchedule(coachId) {
+  return await fetchWithAuth(`${API_BASE}/api/schedule/coach/${coachId}`);
+}
+
+export async function createUserWorkoutSchedule(userId, data) {
+  return await fetchWithAuth(`${API_BASE}/api/schedule/user/${userId}`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function getUserProgress(userId) {
+  return await fetchWithAuth(`${API_BASE}/api/progress/user/${userId}`);
 }
 
 export { fetchWithAuth }; 

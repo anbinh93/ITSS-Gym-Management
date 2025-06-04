@@ -23,6 +23,7 @@ import Schedule from './pages/coach/Schedule'
 import TrainingPrograms from './pages/coach/TrainingPrograms'
 import TrainingProgress from './pages/coach/TrainingProgress'
 import Profiles from './pages/coach/TrainingPrograms'
+import EditProgressScreen from './pages/coach/EditProgressScreen'
 
 // Staff
 import StaffCustomerPage from './pages/staff/StaffCustomerPage'
@@ -178,6 +179,11 @@ function App() {
         <Route path='/coach/profile' element={
           <ProtectedRoute allowedRoles={['coach', 'admin']}>
             <Profiles />
+          </ProtectedRoute>
+        } />
+        <Route path='/coach/edit-progress' element={
+          <ProtectedRoute allowedRoles={['coach', 'admin']}>
+            <EditProgressScreen />
           </ProtectedRoute>
         } />
 

@@ -6,6 +6,8 @@ import {
   updateWorkoutSchedule,
   deleteWorkoutSchedule,
   markAttendance,
+  getWorkoutScheduleByCoach,
+  fixCoachForOldSchedules
 } from "../controllers/workoutScheduleController.js";
 
 const router = express.Router();
@@ -21,5 +23,11 @@ router.delete("/:scheduleId", authMiddleware, deleteWorkoutSchedule);
 
 // User điểm danh buổi tập
 router.post("/:scheduleId/attendance", authMiddleware, markAttendance);
+
+// Lấy lịch tập của coach
+router.get("/coach/:coachId", authMiddleware, getWorkoutScheduleByCoach);
+
+// Thêm route fix-coach
+router.patch("/fix-coach", authMiddleware, fixCoachForOldSchedules);
 
 export default router;

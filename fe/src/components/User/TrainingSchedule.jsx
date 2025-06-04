@@ -1,30 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, User, Clock, Award, Calendar as CalendarIcon } from 'lucide-react';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { getUserWorkoutSchedule } from '../../services/api';
+import { fetchWithAuth } from '../../services/api';
 
 export default function UserTrainingSchedule() {
+    const [scheduleData, setScheduleData] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDay, setSelectedDay] = useState(new Date());
+    const [attendanceMap, setAttendanceMap] = useState({});
 
-    const scheduleData = {
-        "2025-05-15": [
-            { time: "07:00 - 08:00", activity: "Tập cardio", trainer: "An Bình Nguyen" },
-            { time: "17:30 - 18:30", activity: "Tập tay vai", trainer: "An Bình Nguyen" }
-        ],
-        "2025-05-16": [
-            { time: "08:00 - 09:00", activity: "Yoga", trainer: "An Bình Nguyen" }
-        ],
-        "2025-05-17": [
-            { time: "09:00 - 10:00", activity: "Tập chân", trainer: "An Bình Nguyen" },
-            { time: "16:00 - 17:00", activity: "Tập bụng", trainer: null }
-        ],
-        "2025-05-18": [
-            { time: "10:00 - 11:00", activity: "Tập lưng", trainer: "An Bình Nguyen" }
-        ],
-        "2025-05-20": [
-            { time: "18:00 - 19:00", activity: "Boxing", trainer: "An Bình Nguyen" }
-        ]
-    };
+    useEffect(() => {
+        const fetchSchedule = async () => {
+            setLoading(true);
+            setError("");
+            try {
+                const user = JSON.parse(localStorage.getItem('gym_user'));
+                if (!user || !user._id) {
+                    setError("Không tìm thấy thông tin người dùng");
+                    setLoading(false);
+                    return;
+                }
+                const res = await getUserWorkoutSchedule(user._id);
+                if (res.success) {
+                    // Chuyển đổi dữ liệu từ API về dạng { yyyy-mm-dd: [ {time, activity, trainer, scheduleId, attendance} ] }
+                    const map = {};
+                    const attMap = {};
+                    (res.schedules || []).forEach(sch => {
+                        (sch.schedule || []).forEach(item => {
+                            if (item.time && item.time.match(/^\d{4}-\d{2}-\d{2}/)) {
+                                if (!map[item.time]) map[item.time] = [];
+                                map[item.time].push({
+                                    time: item.time,
+                                    activity: item.exercises?.join(', ') || '',
+                                    trainer: sch.coach?.name || null,
+                                    scheduleId: sch._id,
+                                    attendance: sch.attendance || []
+                                });
+                                // Lưu trạng thái attendance cho từng scheduleId
+                                attMap[sch._id] = sch.attendance || [];
+                            }
+                        });
+                    });
+                    setScheduleData(map);
+                    setAttendanceMap(attMap);
+                } else {
+                    setError(res.message || "Không thể tải lịch tập");
+                }
+            } catch (err) {
+                setError("Lỗi kết nối API");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchSchedule();
+    }, []);
 
     const getDaysOfWeek = (date) => {
         const firstDay = new Date(date);
@@ -73,6 +105,45 @@ export default function UserTrainingSchedule() {
             date.getMonth() === selectedDay.getMonth() &&
             date.getFullYear() === selectedDay.getFullYear();
     };
+
+    // Hàm điểm danh
+    const handleAttendance = async (scheduleId) => {
+        try {
+            setLoading(true);
+            await fetchWithAuth(`/api/schedule/${scheduleId}/attendance`, { method: 'POST' });
+            // Sau khi điểm danh, reload lại lịch tập
+            const user = JSON.parse(localStorage.getItem('gym_user'));
+            const res = await getUserWorkoutSchedule(user._id);
+            if (res.success) {
+                const map = {};
+                const attMap = {};
+                (res.schedules || []).forEach(sch => {
+                    (sch.schedule || []).forEach(item => {
+                        if (item.time && item.time.match(/^\d{4}-\d{2}-\d{2}/)) {
+                            if (!map[item.time]) map[item.time] = [];
+                            map[item.time].push({
+                                time: item.time,
+                                activity: item.exercises?.join(', ') || '',
+                                trainer: sch.coach?.name || null,
+                                scheduleId: sch._id,
+                                attendance: sch.attendance || []
+                            });
+                            attMap[sch._id] = sch.attendance || [];
+                        }
+                    });
+                });
+                setScheduleData(map);
+                setAttendanceMap(attMap);
+            }
+        } catch (err) {
+            alert('Lỗi khi xác nhận buổi tập!');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) return <div className="text-center py-5">Đang tải lịch tập...</div>;
+    if (error) return <div className="alert alert-danger">{error}</div>;
 
     return (
         <div className="container py-5">
@@ -151,34 +222,48 @@ export default function UserTrainingSchedule() {
                         <div className="card-body p-3">
                             {getScheduleForSelectedDay().length ? (
                                 <div className="row g-3">
-                                    {getScheduleForSelectedDay().map((item, index) => (
-                                        <div key={index} className="col-md-6">
-                                            <div className="card h-100 border-0 shadow-sm hover-shadow">
-                                                <div className="card-body">
-                                                    <div className="d-flex justify-content-between mb-3">
-                                                        <h6 className="fw-bold text-primary mb-0">{item.activity}</h6>
-                                                        <span className="badge bg-primary rounded-pill d-flex align-items-center">
-                                                            <Clock size={14} className="me-1" /> {item.time}
-                                                        </span>
-                                                    </div>
-                                                    <div className="d-flex align-items-center">
-                                                        <div className="rounded-circle bg-light p-2 me-2">
-                                                            <User size={20} className="text-primary" />
+                                    {getScheduleForSelectedDay().map((item, index) => {
+                                        const user = JSON.parse(localStorage.getItem('gym_user'));
+                                        const attended = item.attendance && user && item.attendance.includes(user._id);
+                                        return (
+                                            <div key={index} className="col-md-6">
+                                                <div className="card h-100 border-0 shadow-sm hover-shadow">
+                                                    <div className="card-body">
+                                                        <div className="d-flex justify-content-between mb-3">
+                                                            <h6 className="fw-bold text-primary mb-0">{item.activity}</h6>
+                                                            <span className="badge bg-primary rounded-pill d-flex align-items-center">
+                                                                <Clock size={14} className="me-1" /> {item.time}
+                                                            </span>
                                                         </div>
-                                                        <span>
-                                                            {item.trainer ? (
-                                                                <>
-                                                                    <span className="text-muted small">HLV:</span> {item.trainer}
-                                                                </>
+                                                        <div className="d-flex align-items-center mb-2">
+                                                            <div className="rounded-circle bg-light p-2 me-2">
+                                                                <User size={20} className="text-primary" />
+                                                            </div>
+                                                            <span>
+                                                                {item.trainer ? (
+                                                                    <>
+                                                                        <span className="text-muted small">HLV:</span> {item.trainer}
+                                                                    </>
+                                                                ) : (
+                                                                    <span className="text-muted small">Không rõ HLV</span>
+                                                                )}
+                                                            </span>
+                                                        </div>
+                                                        {/* Nút xác nhận điểm danh */}
+                                                        <div className="mt-3">
+                                                            {attended ? (
+                                                                <span className="badge bg-success">Đã xác nhận</span>
                                                             ) : (
-                                                                <span className="text-muted fst-italic">Tự tập</span>
+                                                                <button className="btn btn-outline-success btn-sm" onClick={() => handleAttendance(item.scheduleId)}>
+                                                                    Xác nhận đã tập
+                                                                </button>
                                                             )}
-                                                        </span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="text-center py-5">

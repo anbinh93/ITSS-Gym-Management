@@ -31,6 +31,7 @@ const LoginPage = () => {
 
     useEffect(() => {
         if (isLoggedIn && currentUser) {
+            console.log(currentUser);
             // Điều hướng theo role
             switch (currentUser.role) {
                 case 'admin':

@@ -4,14 +4,14 @@ import { FaRegTrashAlt } from "react-icons/fa";
 import ModalEditMember from './Modal/ModalEditMember';
 import ModalAddMember from './Modal/ModalAddMember';
 import './ClientList.css';
-import { getMembershipsByCoach } from '../../services/membershipApi';
+import { getMembershipsByCoach, updateMembershipStatus } from '../../services/membershipApi';
 import authService from '../../services/authService';
 
 export default function ClientList() {
     const [memberships, setMemberships] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const coach = authService.getCurrentUser();
+    const [coach] = useState(authService.getCurrentUser());
 
     useEffect(() => {
         const fetchData = async () => {
@@ -90,9 +90,38 @@ export default function ClientList() {
             <div className="d-flex flex-wrap gap-3">
                 {memberships.length === 0 ? (
                     <div className="text-muted">Chưa có hội viên nào được phân công.</div>
-                ) : memberships.map((m) => (
+                ) : memberships.map((m) => {
+                    // Tạo màu nền random dựa trên userId hoặc tên
+                    const name = m.user?.name || '?';
+                    const firstChar = name.charAt(0).toUpperCase();
+                    const colorList = ['#6c5ce7', '#00b894', '#fdcb6e', '#0984e3', '#e17055', '#636e72', '#00cec9', '#d35400'];
+                    let colorIdx = 0;
+                    if (m.user?._id) {
+                        colorIdx = m.user._id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % colorList.length;
+                    } else {
+                        colorIdx = Math.floor(Math.random() * colorList.length);
+                    }
+                    const bgColor = colorList[colorIdx];
+                    return (
                     <div key={m._id} className="member-card shadow-sm">
-                        <img src={m.user?.avatar || "https://via.placeholder.com/100"} alt={m.user?.name} className="member-image" />
+                        <div
+                            className="member-avatar"
+                            style={{
+                                width: 64,
+                                height: 64,
+                                borderRadius: '50%',
+                                background: bgColor,
+                                color: '#fff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 32,
+                                fontWeight: 700,
+                                margin: '0 auto 10px auto'
+                            }}
+                        >
+                            {firstChar}
+                        </div>
                         <div className="member-info">
                             <h5>{m.user?.name}</h5>
                             <p>Email: {m.user?.email}</p>
@@ -100,7 +129,24 @@ export default function ClientList() {
                             <p>Thời hạn: {m.package?.durationInDays} ngày</p>
                             <p>Ngày đăng ký: {m.startDate ? new Date(m.startDate).toLocaleDateString() : ''}</p>
                             <p>Ngày kết thúc: {m.endDate ? new Date(m.endDate).toLocaleDateString() : ''}</p>
-                            <p>Trạng thái: {m.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}</p>
+                            <p>Trạng thái thanh toán: {m.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}</p>
+                            <div className="mb-2">
+                                <label className="me-2">Trạng thái học viên:</label>
+                                <select
+                                    className="form-select form-select-sm d-inline-block w-auto"
+                                    value={m.status || 'active'}
+                                    onChange={async (e) => {
+                                        const newStatus = e.target.value;
+                                        await updateMembershipStatus(m._id, newStatus);
+                                        // Cập nhật lại memberships sau khi đổi trạng thái
+                                        const res = await getMembershipsByCoach(coach?._id || coach?.id);
+                                        if (res.success) setMemberships(res.data);
+                                    }}
+                                >
+                                    <option value="active">Đang hoạt động</option>
+                                    <option value="inactive">Ngừng hoạt động</option>
+                                </select>
+                            </div>
                             <div className="d-flex gap-2 mt-2">
                                 <button className="btn btn-sm btn-outline-primary" onClick={() => handleEditMember(m)}>
                                     <MdEdit /> Sửa
@@ -114,7 +160,7 @@ export default function ClientList() {
                             </div>
                         </div>
                     </div>
-                ))}
+                )})}
             </div>
 
             <ModalEditMember

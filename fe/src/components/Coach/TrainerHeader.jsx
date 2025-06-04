@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 const TrainerHeader = () => {
     const navigate = useNavigate();
+    const user = JSON.parse(localStorage.getItem('gym_user'));
 
     const handleLogout = () => {
         localStorage.removeItem('gym_token');
@@ -14,9 +15,9 @@ const TrainerHeader = () => {
         <header className="bg-white shadow p-4 d-flex justify-content-between align-items-center">
             <h1 className="text-xl font-semibold">Trang Huấn Luyện Viên</h1>
             <div className="d-flex align-items-center">
-                <div className="me-2 ">👤 HLV An Bình Nguyễn</div>
+                <div className="me-2 ">👤 HLV {user?.name || user?.username || 'Coach'}</div>
                 <img
-                    src="https://github.com/mdo.png"
+                    src={user?.avatar || 'https://github.com/mdo.png'}
                     alt="user"
                     width="60"
                     height="60"

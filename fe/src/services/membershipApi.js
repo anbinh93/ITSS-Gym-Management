@@ -140,4 +140,36 @@ export async function getMembershipsByCoach(coachId) {
         console.error('getMembershipsByCoach error:', error);
         return { success: false, message: error.message || 'Không thể tải danh sách hội viên theo HLV.', data: [] };
     }
+}
+
+export async function updateCoach(membershipId, coachId) {
+    if (!membershipId || !coachId) {
+        return { success: false, message: 'Membership ID và Coach ID là bắt buộc' };
+    }
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/api/membership/${membershipId}/coach`, {
+            method: 'PATCH',
+            body: JSON.stringify({ coach: coachId })
+        });
+        return response;
+    } catch (error) {
+        console.error('updateCoach error:', error);
+        return { success: false, message: error.message || 'Cập nhật HLV thất bại.' };
+    }
+}
+
+export async function updateMembershipStatus(membershipId, status) {
+    if (!membershipId || !status) {
+        return { success: false, message: 'Membership ID và trạng thái là bắt buộc' };
+    }
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/api/membership/${membershipId}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status })
+        });
+        return response;
+    } catch (error) {
+        console.error('updateMembershipStatus error:', error);
+        return { success: false, message: error.message || 'Cập nhật trạng thái membership thất bại.' };
+    }
 } 

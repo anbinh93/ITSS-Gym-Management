@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { ChevronLeft, ChevronRight, Edit2, Save, X, Plus, Users, User, Search } from 'lucide-react';
 import './Schedule.css';
+import { getMembershipsByCoach } from '../../services/membershipApi';
+import { getUserWorkoutSchedule, createUserWorkoutSchedule } from '../../services/api';
+import authService from '../../services/authService';
 
 // Sample data structure with multiple trainees
 const initialTrainees = [
@@ -62,13 +65,80 @@ function formatDateKey(date) {
 const ScheduleCalendar = () => {
     const [value, setValue] = useState(new Date());
     const [activeStartDate, setActiveStartDate] = useState(new Date());
-    const [trainees, setTrainees] = useState(initialTrainees);
-    const [workouts, setWorkouts] = useState(initialWorkouts);
+    const [trainees, setTrainees] = useState([]);
+    const [workouts, setWorkouts] = useState({});
     const [selectedDate, setSelectedDate] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [tempWorkout, setTempWorkout] = useState({ title: '', description: '' });
     const [selectedTraineeId, setSelectedTraineeId] = useState(null); // null means "All trainees"
     const [showTraineeSelector, setShowTraineeSelector] = useState(false);
+    const [loadingTrainees, setLoadingTrainees] = useState(true);
+    const [errorTrainees, setErrorTrainees] = useState("");
+
+    useEffect(() => {
+        const fetchTrainees = async () => {
+            setLoadingTrainees(true);
+            setErrorTrainees("");
+            try {
+                const coach = authService.getCurrentUser();
+                if (!coach || !coach._id) {
+                    setErrorTrainees("Không tìm thấy thông tin HLV");
+                    setTrainees([]);
+                    setLoadingTrainees(false);
+                    return;
+                }
+                const res = await getMembershipsByCoach(coach._id);
+                if (res.success) {
+                    // Lấy danh sách user duy nhất từ memberships
+                    const users = [];
+                    const userIds = new Set();
+                    (res.data || []).forEach(m => {
+                        if (m.user && m.user._id && !userIds.has(m.user._id)) {
+                            users.push({ id: m.user._id, name: m.user.name });
+                            userIds.add(m.user._id);
+                        }
+                    });
+                    setTrainees(users);
+                } else {
+                    setErrorTrainees(res.message || "Không thể tải danh sách học viên");
+                    setTrainees([]);
+                }
+            } catch (err) {
+                setErrorTrainees("Lỗi kết nối API");
+                setTrainees([]);
+            } finally {
+                setLoadingTrainees(false);
+            }
+        };
+        fetchTrainees();
+    }, []);
+
+    // Đảm bảo luôn fetch lịch tập khi chọn học viên, kể cả khi chọn lại cùng một học viên
+    const fetchScheduleForTrainee = async (traineeId) => {
+        if (!traineeId) return;
+        console.log('Gọi API lấy lịch tập cho học viên:', traineeId);
+        try {
+            const res = await getUserWorkoutSchedule(traineeId);
+            console.log('API response:', res);
+            if (res.success) {
+                const scheduleMap = {};
+                scheduleMap[traineeId] = {};
+                (res.schedules || []).forEach(sch => {
+                    (sch.schedule || []).forEach(item => {
+                        if (item.time && item.time.match(/^\d{4}-\d{2}-\d{2}/)) {
+                            scheduleMap[traineeId][item.time] = {
+                                title: item.exercises?.join(', ') || '',
+                                description: sch.note || ''
+                            };
+                        }
+                    });
+                });
+                setWorkouts(prev => ({ ...prev, ...scheduleMap }));
+            }
+        } catch (err) {
+            console.error('API error:', err);
+        }
+    };
 
     const handleMonthChange = (direction) => {
         const newDate = new Date(activeStartDate);
@@ -106,29 +176,35 @@ const ScheduleCalendar = () => {
         setIsEditing(true);
     };
 
-    const handleSaveWorkout = () => {
+    const handleSaveWorkout = async () => {
         if (!selectedDate || !selectedTraineeId) return;
-
         const dateKey = formatDateKey(selectedDate);
         const updatedWorkouts = { ...workouts };
-
-        // Ensure trainee exists in workout object
         if (!updatedWorkouts[selectedTraineeId]) {
             updatedWorkouts[selectedTraineeId] = {};
         }
-
         if (tempWorkout.title.trim() === '') {
-            // Delete workout if title is empty
             if (updatedWorkouts[selectedTraineeId][dateKey]) {
                 delete updatedWorkouts[selectedTraineeId][dateKey];
             }
         } else {
-            // Add or update workout
             updatedWorkouts[selectedTraineeId][dateKey] = { ...tempWorkout };
         }
-
         setWorkouts(updatedWorkouts);
         setIsEditing(false);
+        // Gọi API lưu lịch tập
+        try {
+            await createUserWorkoutSchedule(selectedTraineeId, {
+                schedule: [{
+                    dayOfWeek: selectedDate.toLocaleDateString('en-US', { weekday: 'long' }),
+                    exercises: tempWorkout.title.split(',').map(s => s.trim()),
+                    time: dateKey
+                }],
+                note: tempWorkout.description
+            });
+        } catch (err) {
+            // Có thể show toast lỗi
+        }
     };
 
     const handleCancelEdit = () => {
@@ -149,10 +225,11 @@ const ScheduleCalendar = () => {
         return date.toLocaleDateString('vi-VN', options);
     };
 
+    // Sửa lại handleTraineeSelect để luôn gọi API
     const handleTraineeSelect = (traineeId) => {
         setSelectedTraineeId(traineeId);
         setShowTraineeSelector(false);
-
+        fetchScheduleForTrainee(traineeId); // Luôn gọi API khi chọn
         // Reset workout detail when changing trainee
         if (selectedDate) {
             const dateKey = formatDateKey(selectedDate);
@@ -222,8 +299,11 @@ const ScheduleCalendar = () => {
 
     // Filter trainees based on search query
     const filteredTrainees = trainees.filter(trainee =>
-        trainee.name.toLowerCase().includes(searchQuery.toLowerCase())
+        trainee.name && trainee.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    if (loadingTrainees) return <div className="text-center">Đang tải danh sách học viên...</div>;
+    if (errorTrainees) return <div className="alert alert-danger">{errorTrainees}</div>;
 
     return (
         <div className="container py-5">

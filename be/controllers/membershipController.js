@@ -94,10 +94,41 @@ const getActiveMembership = async (req, res) => {
     }
 };
 
+// Cập nhật coach cho membership
+const updateCoach = async (req, res) => {
+    const { id } = req.params;
+    const { coach } = req.body;
+    try {
+        const updated = await membershipModel.findByIdAndUpdate(id, { coach }, { new: true });
+        if (!updated) return res.status(404).json({ success: false, message: 'Membership not found' });
+        res.json({ success: true, membership: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Error updating coach' });
+    }
+};
+
+// Cập nhật trạng thái học viên (status)
+const updateMembershipStatus = async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!['active', 'inactive'].includes(status)) {
+        return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ' });
+    }
+    try {
+        const updated = await membershipModel.findByIdAndUpdate(id, { status }, { new: true });
+        if (!updated) return res.status(404).json({ success: false, message: 'Membership not found' });
+        res.json({ success: true, membership: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Error updating status' });
+    }
+};
+
 export {
     registerMembership,
     getMembershipsByUser,
     getAllMemberships,
     updatePaymentStatus,
-    getActiveMembership
+    getActiveMembership,
+    updateCoach,
+    updateMembershipStatus
 };
