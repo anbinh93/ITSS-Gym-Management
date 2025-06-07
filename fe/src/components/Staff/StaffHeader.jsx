@@ -1,9 +1,11 @@
 import React from 'react';
 import { Dropdown } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import authService from '../../services/authService';
 
 const Header = () => {
   const navigate = useNavigate();
+  const user = authService.getCurrentUser();
 
   const handleLogout = () => {
     localStorage.removeItem('gym_token');
@@ -18,7 +20,7 @@ const Header = () => {
     >
       <h1 className="fs-4 fw-semibold mb-0">Trang nhân viên quản lý</h1>
       <div className="d-flex align-items-center">
-        <div className="me-3">👤 Staff An Bình Nguyễn</div>
+        <div className="me-3">👤 Staff {user?.name || user?.email || '---'}</div>
         <Dropdown>
           <Dropdown.Toggle
             as="img"

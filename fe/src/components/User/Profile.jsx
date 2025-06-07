@@ -1,30 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Form, Button, Container, Row, Col, Card, Alert, Spinner, Modal } from 'react-bootstrap';
+import authService from '../../services/authService';
+import { getUserById, updateUser } from '../../services/api';
 
 const Profile = () => {
     // State cho thông tin người dùng
-    const [profile, setProfile] = useState({
-        fullName: 'Nguyễn Thanh Hiếu',
-        email: 'hieu@gmail.com',
-        phone: '0912345678',
-        dob: '2004-08-09',
-        gender: 'male',
-        address: 'Cổ Bi, Gia Lâm, Hà Nội',
-        emergencyContact: '0987654321',
-        membershipType: 'premium',
-        startDate: '2023-01-01',
-        expiryDate: '2025-01-01',
-        fitnessGoals: 'Giảm cân, Tăng cơ',
-        healthConditions: 'Không có',
-        profileImage: 'https://via.placeholder.com/150'
-    });
+    const [profile, setProfile] = useState(null);
 
     // State cho chế độ chỉnh sửa
     const [isEditing, setIsEditing] = useState(false);
 
     // State cho form tạm thời khi chỉnh sửa
-    const [tempProfile, setTempProfile] = useState({ ...profile });
+    const [tempProfile, setTempProfile] = useState(profile ? { ...profile } : {});
 
     // State cho thông báo
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
@@ -34,6 +22,36 @@ const Profile = () => {
 
     // State cho modal xác nhận
     const [showConfirm, setShowConfirm] = useState(false);
+
+    // Lấy userId từ localStorage hoặc authService
+    const user = authService.getCurrentUser();
+
+    useEffect(() => {
+        if (!user || !user._id) return;
+        setLoading(true);
+        getUserById(user._id)
+            .then(res => {
+                if (res && res.user) {
+                    setProfile({
+                        fullName: res.user.name || '',
+                        email: res.user.email || '',
+                        phone: res.user.phone || '',
+                        dob: res.user.dob ? res.user.dob.slice(0, 10) : '',
+                        gender: res.user.gender || 'male',
+                        address: res.user.address || '',
+                        emergencyContact: res.user.emergencyContact || '',
+                        membershipType: res.user.membershipType || 'basic',
+                        startDate: res.user.startDate ? res.user.startDate.slice(0, 10) : '',
+                        expiryDate: res.user.expiryDate ? res.user.expiryDate.slice(0, 10) : '',
+                        fitnessGoals: res.user.fitnessGoals || '',
+                        healthConditions: res.user.healthConditions || '',
+                        profileImage: res.user.profileImage || 'https://via.placeholder.com/150',
+                    });
+                }
+            })
+            .catch(() => setNotification({ show: true, message: 'Không thể tải thông tin người dùng', type: 'danger' }))
+            .finally(() => setLoading(false));
+    }, [user]);
 
     // Xử lý khi thay đổi input
     const handleChange = (e) => {
@@ -69,24 +87,48 @@ const Profile = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-
-        // Mô phỏng gọi API để lưu thông tin
         try {
-            // Giả lập API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            setProfile({ ...tempProfile });
-            setIsEditing(false);
-            setNotification({
-                show: true,
-                message: 'Cập nhật thông tin thành công!',
-                type: 'success'
-            });
-
-            // Tự động ẩn thông báo sau 3 giây
-            setTimeout(() => {
-                setNotification({ show: false, message: '', type: '' });
-            }, 3000);
+            const updateData = { ...tempProfile, name: tempProfile.fullName };
+            delete updateData.fullName;
+            const res = await updateUser(user._id, updateData);
+            if (res && res.user) {
+                setProfile({
+                    fullName: res.user.name || '',
+                    email: res.user.email || '',
+                    phone: res.user.phone || '',
+                    dob: res.user.dob ? res.user.dob.slice(0, 10) : '',
+                    gender: res.user.gender || 'male',
+                    address: res.user.address || '',
+                    emergencyContact: res.user.emergencyContact || '',
+                    membershipType: res.user.membershipType || 'basic',
+                    startDate: res.user.startDate ? res.user.startDate.slice(0, 10) : '',
+                    expiryDate: res.user.expiryDate ? res.user.expiryDate.slice(0, 10) : '',
+                    fitnessGoals: res.user.fitnessGoals || '',
+                    healthConditions: res.user.healthConditions || '',
+                    profileImage: res.user.profileImage || 'https://via.placeholder.com/150',
+                });
+                // Cập nhật localStorage
+                const localUser = JSON.parse(localStorage.getItem('gym_user') || '{}');
+                localUser.name = res.user.name;
+                localUser.email = res.user.email;
+                localUser.phone = res.user.phone;
+                localStorage.setItem('gym_user', JSON.stringify(localUser));
+                setIsEditing(false);
+                setNotification({
+                    show: true,
+                    message: 'Cập nhật thông tin thành công!',
+                    type: 'success'
+                });
+                setTimeout(() => {
+                    setNotification({ show: false, message: '', type: '' });
+                }, 3000);
+            } else {
+                setNotification({
+                    show: true,
+                    message: 'Có lỗi xảy ra khi cập nhật thông tin. Vui lòng thử lại!',
+                    type: 'danger'
+                });
+            }
         } catch (error) {
             setNotification({
                 show: true,
@@ -97,6 +139,8 @@ const Profile = () => {
             setLoading(false);
         }
     };
+
+    if (!profile) return <div className="text-center py-5"><Spinner animation="border" /></div>;
 
     return (
         <Container className="py-5">

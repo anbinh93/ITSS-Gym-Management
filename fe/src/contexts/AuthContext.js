@@ -25,6 +25,8 @@ export const AuthProvider = ({ children }) => {
     const login = (userData, token) => {
         setUser(userData);
         localStorage.setItem('gym_token', token);
+        console.log(userData);
+        console.log(token);
     };
 
     const logout = () => {

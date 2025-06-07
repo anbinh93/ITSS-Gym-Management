@@ -3,7 +3,7 @@ import { packageModel } from "../models/packageModel.js";
 
 // Đăng ký gói tập mới cho hội viên
 const registerMembership = async (req, res) => {
-    const { userId, packageId, paymentStatus } = req.body;
+    const { userId, packageId, paymentStatus, coach } = req.body;
 
     try {
         const packageInfo = await packageModel.findById(packageId);
@@ -17,6 +17,7 @@ const registerMembership = async (req, res) => {
 
         const newMembership = await membershipModel.create({
             user: userId,
+            coach: coach || undefined,
             package: packageId,
             startDate,
             endDate,
@@ -38,7 +39,8 @@ const getMembershipsByUser = async (req, res) => {
 
     try {
         const memberships = await membershipModel.find({ user: userId })
-            .populate("package");
+            .populate("package")
+            .populate("coach", "name email");
         res.json({ success: true, memberships });
     } catch (err) {
         console.log(err);
@@ -49,7 +51,11 @@ const getMembershipsByUser = async (req, res) => {
 // Lấy tất cả membership (admin dashboard)
 const getAllMemberships = async (req, res) => {
     try {
-        const memberships = await membershipModel.find().populate('user').populate('package');
+        const filter = {};
+        if (req.query.coach) {
+            filter.coach = req.query.coach;
+        }
+        const memberships = await membershipModel.find(filter).populate('user').populate('package').populate('coach');
         res.json({ success: true, memberships });
     } catch (err) {
         res.json({ success: false, message: 'Error fetching all memberships' });
@@ -72,9 +78,58 @@ const updatePaymentStatus = async (req, res) => {
     }
 };
 
+// Lấy membership active của user
+const getActiveMembership = async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const now = new Date();
+        const memberships = await membershipModel.find({
+            user: userId,
+            paymentStatus: 'paid',
+            startDate: { $lte: now },
+            endDate: { $gte: now }
+        }).populate("package").populate("coach", "name email");
+        res.json({ success: true, memberships });
+    } catch (err) {
+        res.json({ success: false, message: "Error fetching active membership" });
+    }
+};
+
+// Cập nhật coach cho membership
+const updateCoach = async (req, res) => {
+    const { id } = req.params;
+    const { coach } = req.body;
+    try {
+        const updated = await membershipModel.findByIdAndUpdate(id, { coach }, { new: true });
+        if (!updated) return res.status(404).json({ success: false, message: 'Membership not found' });
+        res.json({ success: true, membership: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Error updating coach' });
+    }
+};
+
+// Cập nhật trạng thái học viên (status)
+const updateMembershipStatus = async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!['active', 'inactive'].includes(status)) {
+        return res.status(400).json({ success: false, message: 'Trạng thái không hợp lệ' });
+    }
+    try {
+        const updated = await membershipModel.findByIdAndUpdate(id, { status }, { new: true });
+        if (!updated) return res.status(404).json({ success: false, message: 'Membership not found' });
+        res.json({ success: true, membership: updated });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Error updating status' });
+    }
+};
+
 export {
     registerMembership,
     getMembershipsByUser,
     getAllMemberships,
-    updatePaymentStatus
+    updatePaymentStatus,
+    getActiveMembership,
+    updateCoach,
+    updateMembershipStatus
 };

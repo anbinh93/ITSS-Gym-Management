@@ -29,8 +29,8 @@ export async function getActiveMembership(userId) {
         return { success: false, message: 'User ID is required' };
     }
     try {
-        const response = await fetchWithAuth(`${API_BASE}/api/memberships/active/${userId}`);
-        return { success: true, ...response }; // Assumes response is already structured or just data
+        const response = await fetchWithAuth(`${API_BASE}/api/membership/active/${userId}`);
+        return response; // Backend already returns { success: true, memberships }
     } catch (error) {
         console.error('getActiveMembership error:', error);
         return { success: false, message: error.message || 'Lấy thông tin gói tập thất bại' };
@@ -43,7 +43,7 @@ export async function getMembershipHistory(userId) {
         return { success: false, message: 'User ID is required' };
     }
     try {
-        const response = await fetchWithAuth(`${API_BASE}/api/memberships/user/${userId}`);
+        const response = await fetchWithAuth(`${API_BASE}/api/membership/user/${userId}`);
         return { success: true, ...response }; 
     } catch (error) {
         console.error('getMembershipHistory error:', error);
@@ -126,5 +126,52 @@ export async function updatePaymentStatus(id, paymentStatus) {
     } catch (error) {
         console.error('updatePaymentStatus error:', error);
         return { success: false, message: error.message || 'Cập nhật trạng thái thanh toán thất bại.' };
+    }
+}
+
+export async function getMembershipsByCoach(coachId) {
+    if (!coachId) {
+        return { success: false, message: 'Coach ID is required' };
+    }
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/api/membership/all?coach=${coachId}`);
+        // Response structure is { success: true, memberships: [...] }
+        const memberships = response.memberships || [];
+        return { success: true, data: memberships };
+    } catch (error) {
+        console.error('getMembershipsByCoach error:', error);
+        return { success: false, message: error.message || 'Không thể tải danh sách hội viên theo HLV.', data: [] };
+    }
+}
+
+export async function updateCoach(membershipId, coachId) {
+    if (!membershipId) {
+        return { success: false, message: 'Membership ID là bắt buộc' };
+    }
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/api/membership/${membershipId}/coach`, {
+            method: 'PATCH',
+            body: JSON.stringify({ coach: coachId || null })
+        });
+        return response;
+    } catch (error) {
+        console.error('updateCoach error:', error);
+        return { success: false, message: error.message || 'Cập nhật HLV thất bại.' };
+    }
+}
+
+export async function updateMembershipStatus(membershipId, status) {
+    if (!membershipId || !status) {
+        return { success: false, message: 'Membership ID và trạng thái là bắt buộc' };
+    }
+    try {
+        const response = await fetchWithAuth(`${API_BASE}/api/membership/${membershipId}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status })
+        });
+        return response;
+    } catch (error) {
+        console.error('updateMembershipStatus error:', error);
+        return { success: false, message: error.message || 'Cập nhật trạng thái membership thất bại.' };
     }
 } 

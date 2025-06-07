@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['admin', 'staff', 'coach', 'user'], default: 'user' },
   department: String,
   username: { type: String, unique: true },
+  isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
 export const userModel = mongoose.models.User || mongoose.model("User", userSchema);

@@ -1,32 +1,64 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Table } from "react-bootstrap";
 import ButtonAddNew from "../Button/ButtonAddNew";
 import ActionButtons from "../Button/ActionButtons";
 import ModalForm from "../Admin/Modal/ModalForm"; 
+import { getAllMemberships, updateCoach } from '../../services/membershipApi';
+import { getAllUsers } from '../../services/api';
 
 const SubscriptionManagement = () => {
-  const [subscriptions, setSubscriptions] = useState([
-    {
-      id: 1,
-      name: "Nguyễn Văn A",
-      registrationDate: "2023-08-10",
-      type: "monthly",
-      renewalStatus: "renewed",
-    },
-    {
-      id: 2,
-      name: "Trần Thị B",
-      registrationDate: "2023-09-12",
-      type: "yearly",
-      renewalStatus: "pending",
-    },
-  ]);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [isShowModalAdd, setIsShowModalAdd] = useState(false);
   const [isShowModalEdit, setIsShowModalEdit] = useState(false);
   const [selectedSub, setSelectedSub] = useState({}); // để sửa
+
+  // Thêm state cho coach management
+  const [isShowModalEditCoach, setIsShowModalEditCoach] = useState(false);
+  const [coaches, setCoaches] = useState([]);
+  const [membershipEdit, setMembershipEdit] = useState({});
+  const [successMsg, setSuccessMsg] = useState("");
+
+  // Fetch memberships from backend
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      getAllMemberships(),
+      getAllUsers()
+    ]).then(([membershipRes, usersRes]) => {
+      if (membershipRes.success && Array.isArray(membershipRes.data.memberships || membershipRes.data)) {
+        // Map về format FE cần
+        const mapped = (membershipRes.data.memberships || membershipRes.data).map(m => ({
+          id: m._id,
+          name: m.user?.name || '',
+          registrationDate: m.startDate ? new Date(m.startDate).toLocaleDateString('vi-VN') : '',
+          endDate: m.endDate ? new Date(m.endDate).toLocaleDateString('vi-VN') : '',
+          type: m.package?.durationInDays >= 365 ? 'yearly' : (m.package?.durationInDays >= 28 ? 'monthly' : 'daily'),
+          packageName: m.package?.name || '',
+          renewalStatus: m.paymentStatus === 'paid' ? (new Date(m.endDate) < new Date() ? 'expired' : 'renewed') : 'pending',
+          paymentStatus: m.paymentStatus,
+          sessionsRemaining: m.sessionsRemaining,
+          coach: m.coach,
+          membershipData: m, // Lưu dữ liệu gốc để dùng cho edit coach
+        }));
+        setSubscriptions(mapped);
+      } else {
+        setError(membershipRes.message || 'Không thể tải danh sách đăng ký.');
+      }
+
+      // Set coaches
+      if (usersRes.success) {
+        const coachUsers = (usersRes.users || []).filter(u => u.role === 'coach');
+        setCoaches(coachUsers);
+      }
+    })
+    .catch(() => setError('Không thể kết nối tới server.'))
+    .finally(() => setLoading(false));
+  }, []);
 
   // Lọc theo type và status
   const filteredData = subscriptions.filter((sub) => {
@@ -57,6 +89,49 @@ const SubscriptionManagement = () => {
   const handleSubmit = (data) => {
     console.log(data)
   }
+
+  const handleEditCoach = (subscription) => {
+    setMembershipEdit(subscription.membershipData);
+    setIsShowModalEditCoach(true);
+  };
+
+  const handleCloseCoach = () => {
+    setIsShowModalEditCoach(false);
+    setMembershipEdit({});
+  };
+
+  const onSubmitCoach = async (formData) => {
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await updateCoach(membershipEdit._id, formData.coach);
+      if (res.success) {
+        setSuccessMsg('Cập nhật HLV thành công!');
+        setIsShowModalEditCoach(false);
+        // Refresh data
+        window.location.reload();
+      } else {
+        setError(res.message || 'Cập nhật HLV thất bại');
+      }
+    } catch (err) {
+      setError(err.message || 'Cập nhật HLV thất bại');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const coachFields = [
+    {
+      name: "coach",
+      label: "Huấn luyện viên",
+      type: "select",
+      options: [
+        { label: "Không có HLV", value: "" },
+        ...coaches.map((c) => ({ label: `${c.name} (${c.email})`, value: c._id })),
+      ],
+    },
+  ];
 
   const subscriptionFields = [
     {
@@ -125,21 +200,30 @@ const SubscriptionManagement = () => {
         </select>
       </form>
 
+      {loading && <div className="text-center my-3">Đang tải dữ liệu...</div>}
+      {error && <div className="alert alert-danger my-3">{error}</div>}
+      {successMsg && <div className="alert alert-success my-3">{successMsg}</div>}
+
       <Table bordered hover responsive className="mt-3">
         <thead className="table-light">
           <tr>
             <th>ID</th>
             <th>Họ và tên</th>
+            <th>Gói tập</th>
+            <th>HLV phụ trách</th>
             <th>Ngày đăng ký</th>
+            <th>Ngày kết thúc</th>
             <th>Loại đăng ký</th>
             <th>Tình trạng gia hạn</th>
+            <th>Trạng thái thanh toán</th>
+            <th>Số buổi còn lại</th>
             <th>Thao tác</th>
           </tr>
         </thead>
         <tbody>
           {filteredData.length === 0 ? (
             <tr>
-              <td colSpan="6" className="text-center">
+              <td colSpan="11" className="text-center">
                 Không có dữ liệu
               </td>
             </tr>
@@ -148,7 +232,10 @@ const SubscriptionManagement = () => {
               <tr key={sub.id}>
                 <td>{sub.id}</td>
                 <td>{sub.name}</td>
+                <td>{sub.packageName}</td>
+                <td>{sub.coach?.name || 'Chưa có'}</td>
                 <td>{sub.registrationDate}</td>
+                <td>{sub.endDate}</td>
                 <td>
                   {{
                     daily: "Theo buổi",
@@ -163,12 +250,19 @@ const SubscriptionManagement = () => {
                     expired: "Hết hạn",
                   }[sub.renewalStatus]}
                 </td>
+                <td>{sub.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}</td>
+                <td>{sub.sessionsRemaining ?? ''}</td>
                 <td>
-                <ActionButtons
-                  onEdit={() => handleEditSub(sub)}
-                  onDelete={() => handleDelete(sub.id)}
-                />
-              </td>
+                  <div className="d-flex gap-1 flex-wrap">
+                    <ActionButtons
+                      onEdit={() => handleEditSub(sub)}
+                      onDelete={() => handleDelete(sub.id)}
+                    />
+                    <button className="btn btn-sm btn-primary" onClick={() => handleEditCoach(sub)}>
+                      Chỉnh sửa HLV
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))
           )}
@@ -189,6 +283,14 @@ const SubscriptionManagement = () => {
         fields={subscriptionFields}
         data={selectedSub}
         onSubmit={handleSubmit} 
+      />
+      <ModalForm
+        show={isShowModalEditCoach}
+        handleClose={handleCloseCoach}
+        title="Chỉnh sửa huấn luyện viên"
+        fields={coachFields}
+        data={{ coach: membershipEdit.coach?._id || "" }}
+        onSubmit={onSubmitCoach}
       />
     </div>
   );

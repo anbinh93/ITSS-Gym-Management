@@ -127,14 +127,19 @@ async function seed() {
     withTrainer: false
   });
 
-  // Seed membership
+  // Tìm user và coach
+  const user = createdUsers.find(u => u.role === 'user');
+  const coach = createdUsers.find(u => u.role === 'coach');
   await membershipModel.create({
-    user: createdUsers[0]._id,
+    user: user._id,
+    coach: coach._id,
     package: pkg._id,
     startDate: new Date(),
     endDate: new Date(Date.now() + 30*24*60*60*1000),
     sessionsRemaining: 20,
-    isActive: true
+    isActive: true,
+    paymentStatus: 'paid',
+    status: 'active'
   });
 
   console.log("Seed dữ liệu mẫu thành công!");

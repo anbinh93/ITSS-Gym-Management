@@ -1,4 +1,4 @@
-const API_BASE = process.env.REACT_APP_API_URL || "";
+import { API_BASE } from './config';
 
 // Helper function to handle auth errors
 const handleAuthError = (response) => {
@@ -16,33 +16,44 @@ const handleAuthError = (response) => {
 
 // Enhanced fetch function with auth error handling
 const fetchWithAuth = async (url, options = {}) => {
-  const token = localStorage.getItem('gym_token');
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  try{
+        const token = localStorage.getItem('gym_token');
+        const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("fetchWithAuth data:", data);
+      // Check for auth errors
+      if (handleAuthError(data)) {
+        throw new Error('Authentication expired');
+      }
+      
+      return data;
+  }catch(error){
+    console.log("fetchWithAuth error:", error);
+    // Return error response structure instead of undefined
+    return {
+      success: false,
+      message: error.message || 'Network error',
+      error: error
+    };
   }
   
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  const data = await response.json();
-  
-  // Check for auth errors
-  if (handleAuthError(data)) {
-    throw new Error('Authentication expired');
-  }
-  
-  return data;
 };
 
 export async function login(emailOrUsername, password) {
@@ -277,12 +288,12 @@ export async function submitFeedback(data) {
 }
 
 // ===== STATISTICS API =====
-export async function getRevenue() {
+export async function getRevenue(period = 'month') {
   try {
-    return await fetchWithAuth(`${API_BASE}/api/statistics/revenue`);
+    return await fetchWithAuth(`${API_BASE}/api/statistics/revenue?period=${period}`);
   } catch (error) {
     console.error('getRevenue error:', error);
-    return { success: false, revenue: 0 };
+    return { success: false, revenue: 0, timeSeriesData: [], period };
   }
 }
 
@@ -304,4 +315,33 @@ export async function getStaffPerformance() {
   }
 }
 
-export { fetchWithAuth }; 
+// ===== WORKOUT SCHEDULE API =====
+export async function getUserWorkoutSchedule(userId) {
+  return await fetchWithAuth(`${API_BASE}/api/schedule/user/${userId}`, {
+    method: 'GET'
+  });
+}
+
+export async function getCoachWorkoutSchedule(coachId) {
+  return await fetchWithAuth(`${API_BASE}/api/schedule/coach/${coachId}`);
+}
+
+export async function createUserWorkoutSchedule(userId, data) {
+  return await fetchWithAuth(`${API_BASE}/api/schedule/user/${userId}`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export async function getUserProgress(userId) {
+  return await fetchWithAuth(`${API_BASE}/api/progress/user/${userId}`);
+}
+
+export async function updateUserProgress(userId, progressData) {
+  return await fetchWithAuth(`${API_BASE}/api/progress/user/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(progressData)
+  });
+}
+
+export { fetchWithAuth };

@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar } from 'recharts';
-import { TrendingUp, Activity, User, ArrowDown, ArrowUp, Scale, Heart, Award, Zap, Lightbulb } from 'lucide-react';
+import { TrendingUp, Activity, User, ArrowDown, ArrowUp, Scale, Heart, Award, Zap, Lightbulb, Target } from 'lucide-react';
+import { getWorkoutStats } from '../../services/workoutSessionApi';
+import authService from '../../services/authService';
 
 export default function Progress() {
-    const [userData, setUserData] = useState({
+    const [userData] = useState({
         weight: 75,
         height: 175,
         bodyFat: 18,
@@ -26,6 +28,42 @@ export default function Progress() {
             { date: '04/05', calories: 2100 }
         ]
     });
+
+    const [workoutStats, setWorkoutStats] = useState({
+        completedSessions: 0,
+        totalSessions: 0,
+        loading: true,
+        error: null
+    });
+
+    useEffect(() => {
+        const fetchWorkoutStats = async () => {
+            try {
+                const user = authService.getCurrentUser();
+                if (user && user._id) {
+                    const statsRes = await getWorkoutStats(user._id);
+                    if (statsRes.success) {
+                        setWorkoutStats({
+                            completedSessions: statsRes.stats.completedSessions || 0,
+                            totalSessions: statsRes.stats.totalSessions || 0,
+                            loading: false,
+                            error: null
+                        });
+                    } else {
+                        console.error('Workout stats error:', statsRes.message);
+                        setWorkoutStats(prev => ({ ...prev, loading: false, error: statsRes.message }));
+                    }
+                } else {
+                    setWorkoutStats(prev => ({ ...prev, loading: false, error: 'Không tìm thấy thông tin người dùng' }));
+                }
+            } catch (error) {
+                console.error('Error fetching workout stats:', error);
+                setWorkoutStats(prev => ({ ...prev, loading: false, error: 'Không thể tải thống kê tập luyện' }));
+            }
+        };
+
+        fetchWorkoutStats();
+    }, []);
 
     const COLORS = ['#6366F1', '#FF8042'];
     const RADIAN = Math.PI / 180;
@@ -88,7 +126,7 @@ export default function Progress() {
 
                 {/* Stats Overview */}
                 <div className="row g-4 mb-4">
-                    <div className="col-md-4">
+                    <div className="col-md-3">
                         <div className="card border-0 h-100 shadow-sm rounded-4 overflow-hidden">
                             <div className="card-header py-3 border-0" style={{ background: 'linear-gradient(to right, #6366F1, #818CF8)' }}>
                                 <h5 className="fw-bold mb-0 text-white">
@@ -98,8 +136,7 @@ export default function Progress() {
                             </div>
                             <div className="card-body d-flex align-items-center">
                                 <div className="display-5 fw-bold me-3" style={{ color: '#4F46E5' }}>
-                                    {userData.weight}
-                                </div>
+                                    {userData.weight}</div>
                                 <div>
                                     <div className="fs-4 fw-light text-muted">kg</div>
                                     <div className={`d-flex align-items-center ${weightTrend < 0 ? 'text-success' : 'text-danger'}`}>
@@ -111,7 +148,7 @@ export default function Progress() {
                         </div>
                     </div>
 
-                    <div className="col-md-4">
+                    <div className="col-md-3">
                         <div className="card border-0 h-100 shadow-sm rounded-4 overflow-hidden">
                             <div className="card-header py-3 border-0" style={{ background: 'linear-gradient(to right, #0EA5E9, #38BDF8)' }}>
                                 <h5 className="fw-bold mb-0 text-white">
@@ -128,7 +165,7 @@ export default function Progress() {
                         </div>
                     </div>
 
-                    <div className="col-md-4">
+                    <div className="col-md-3">
                         <div className="card border-0 h-100 shadow-sm rounded-4 overflow-hidden">
                             <div className="card-header py-3 border-0" style={{ background: 'linear-gradient(to right, #8B5CF6, #A78BFA)' }}>
                                 <h5 className="fw-bold mb-0 text-white">
@@ -151,6 +188,112 @@ export default function Progress() {
                                         {bmiCategory}
                                     </span>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="col-md-3">
+                        <div className="card border-0 h-100 shadow-sm rounded-4 overflow-hidden">
+                            <div className="card-header py-3 border-0" style={{ background: 'linear-gradient(to right, #10B981, #34D399)' }}>
+                                <h5 className="fw-bold mb-0 text-white">
+                                    <Target className="me-2" />
+                                    Thời lượng tập
+                                </h5>
+                            </div>
+                            <div className="card-body d-flex align-items-center">
+                                {workoutStats.loading ? (
+                                    <div className="text-center w-100">
+                                        <div className="spinner-border spinner-border-sm text-success" role="status">
+                                            <span className="visually-hidden">Loading...</span>
+                                        </div>
+                                    </div>
+                                ) : workoutStats.error ? (
+                                    <div className="text-danger small">{workoutStats.error}</div>
+                                ) : (
+                                    <>
+                                        <div className="display-5 fw-bold me-3" style={{ color: '#059669' }}>
+                                            {workoutStats.completedSessions}
+                                        </div>
+                                        <div>
+                                            <div className="fs-4 fw-light text-muted">
+                                                /{workoutStats.totalSessions}
+                                            </div>
+                                            <div className="small text-success">
+                                                buổi tập
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Workout Duration Widget */}
+                <div className="row g-4 mb-4">
+                    <div className="col-12">
+                        <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
+                            <div className="card-header py-3 border-0" style={{ background: 'linear-gradient(to right, #EC4899, #F472B6)' }}>
+                                <h5 className="fw-bold mb-0 text-white">
+                                    <Target className="me-2" />
+                                    Thời lượng tập
+                                </h5>
+                            </div>
+                            <div className="card-body">
+                                {workoutStats.loading ? (
+                                    <div className="text-center py-4">
+                                        <div className="spinner-border text-primary" role="status">
+                                            <span className="visually-hidden">Loading...</span>
+                                        </div>
+                                        <p className="mt-2 text-muted">Đang tải thống kê tập luyện...</p>
+                                    </div>
+                                ) : workoutStats.error ? (
+                                    <div className="text-center py-4 text-muted">
+                                        <p>{workoutStats.error}</p>
+                                    </div>
+                                ) : (
+                                    <div className="row align-items-center">
+                                        <div className="col-lg-8">
+                                            <div className="d-flex align-items-center">
+                                                <div className="display-4 fw-bold me-3" style={{ color: '#EC4899' }}>
+                                                    {workoutStats.completedSessions}/{workoutStats.totalSessions}
+                                                </div>
+                                                <div>
+                                                    <div className="fs-5 fw-medium text-muted">Buổi tập hoàn thành</div>
+                                                    <div className="text-muted">
+                                                        {workoutStats.totalSessions > 0 
+                                                            ? `${Math.round((workoutStats.completedSessions / workoutStats.totalSessions) * 100)}% hoàn thành`
+                                                            : 'Chưa có buổi tập nào'
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="col-lg-4">
+                                            <div className="progress" style={{ height: '20px' }}>
+                                                <div 
+                                                    className="progress-bar" 
+                                                    role="progressbar" 
+                                                    style={{ 
+                                                        width: workoutStats.totalSessions > 0 
+                                                            ? `${(workoutStats.completedSessions / workoutStats.totalSessions) * 100}%` 
+                                                            : '0%',
+                                                        background: 'linear-gradient(to right, #EC4899, #F472B6)'
+                                                    }}
+                                                    aria-valuenow={workoutStats.completedSessions} 
+                                                    aria-valuemin="0" 
+                                                    aria-valuemax={workoutStats.totalSessions}
+                                                >
+                                                </div>
+                                            </div>
+                                            <div className="text-center mt-2">
+                                                <small className="text-muted">
+                                                    Còn lại: {workoutStats.totalSessions - workoutStats.completedSessions} buổi
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

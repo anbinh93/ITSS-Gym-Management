@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, Lock, Mail, User, AlertCircle, Loader, Dumbbell } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, clearError, selectAuthLoading, selectAuthError, selectIsLoggedIn } from '../../redux/authSlice';
-import authService from '../../services/authService';
-import { Eye, EyeOff, Lock, Mail, User, AlertCircle, CheckCircle, Loader } from 'lucide-react';
-import DemoInstructions from '../../components/DemoInstructions';
-import './login.css';
+import { loginUser, selectIsLoggedIn, selectCurrentUser, selectAuthError, selectAuthLoading } from '../../redux/authSlice';
 
 const LoginPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const isLoading = useSelector(selectAuthLoading);
-    const error = useSelector(selectAuthError);
     const isLoggedIn = useSelector(selectIsLoggedIn);
+    const currentUser = useSelector(selectCurrentUser);
+    const authError = useSelector(selectAuthError);
+    const authLoading = useSelector(selectAuthLoading);
 
     const [formData, setFormData] = useState({
         emailOrUsername: '',
@@ -21,72 +19,108 @@ const LoginPage = () => {
     });
     const [showPassword, setShowPassword] = useState(false);
     const [showDemoAccounts, setShowDemoAccounts] = useState(false);
+    const [validationErrors, setValidationErrors] = useState({});
 
     // Demo accounts for easy testing
-    const demoAccounts = authService.getDemoAccounts();
+    const demoAccounts = [
+        { id: 1, name: 'Admin User', email: 'admin@gym.com', username: 'admin', role: 'admin', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=50&h=50&fit=crop&crop=face' },
+        { id: 2, name: 'Staff Member', email: 'staff@gym.com', username: 'staff', role: 'staff', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b47c?w=50&h=50&fit=crop&crop=face' },
+        { id: 3, name: 'Coach John', email: 'coach@gym.com', username: 'coach', role: 'coach', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=50&h=50&fit=crop&crop=face' },
+        { id: 4, name: 'Member User', email: 'user@gym.com', username: 'user', role: 'user', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=50&h=50&fit=crop&crop=face' }
+    ];
 
     useEffect(() => {
-        if (isLoggedIn) {
-            const user = authService.getCurrentUser();
-            if (user) {
-                // Redirect based on user role
-                switch (user.role) {
-                    case 'admin':
-                        navigate('/admin/dashboard');
-                        break;
-                    case 'staff':
-                        navigate('/staff/dashboard');
-                        break;
-                    case 'coach':
-                        navigate('/coach/dashboard');
-                        break;
-                    case 'user':
-                        navigate('/user/dashboard');
-                        break;
-                    default:
-                        navigate('/');
-                }
+        if (isLoggedIn && currentUser) {
+            console.log(currentUser);
+            // Điều hướng theo role
+            switch (currentUser.role) {
+                case 'admin':
+                    navigate('/admin/dashboard', { replace: true });
+                    break;
+                case 'staff':
+                    navigate('/staff/dashboard', { replace: true });
+                    break;
+                case 'coach':
+                    navigate('/coach/dashboard', { replace: true });
+                    break;
+                case 'user':
+                    navigate('/user/dashboard', { replace: true });
+                    break;
+                default:
+                    navigate('/login', { replace: true });
             }
         }
-    }, [isLoggedIn, navigate]);
+    }, [isLoggedIn, currentUser, navigate]);
 
-    useEffect(() => {
-        // Clear error when component mounts
-        dispatch(clearError());
-    }, [dispatch]);
+    const validateField = (name, value) => {
+        const errors = { ...validationErrors };
+        
+        switch (name) {
+            case 'emailOrUsername':
+                if (!value.trim()) {
+                    errors[name] = 'Email hoặc tên đăng nhập là bắt buộc';
+                } else if (value.includes('@') && !/\S+@\S+\.\S+/.test(value)) {
+                    errors[name] = 'Định dạng email không hợp lệ';
+                } else {
+                    delete errors[name];
+                }
+                break;
+            case 'password':
+                if (!value.trim()) {
+                    errors[name] = 'Mật khẩu là bắt buộc';
+                } else if (value.length < 8) {
+                    errors[name] = 'Mật khẩu phải có ít nhất 8 ký tự';
+                } else {
+                    delete errors[name];
+                }
+                break;
+            default:
+                break;
+        }
+        
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
+        const newValue = type === 'checkbox' ? checked : value;
+        
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: newValue
         }));
         
-        // Clear error when user starts typing
-        if (error) {
-            dispatch(clearError());
+        // Validate field on change
+        if (name !== 'rememberMe') {
+            validateField(name, newValue);
         }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        if (!formData.emailOrUsername.trim() || !formData.password.trim()) {
+        // Validate all fields
+        const isEmailValid = validateField('emailOrUsername', formData.emailOrUsername);
+        const isPasswordValid = validateField('password', formData.password);
+        
+        if (!isEmailValid || !isPasswordValid) {
             return;
         }
 
-        dispatch(loginUser({
-            emailOrUsername: formData.emailOrUsername.trim(),
-            password: formData.password
-        }));
+        // Gọi redux action loginUser
+        dispatch(loginUser(formData));
     };
 
     const handleDemoLogin = (account) => {
-        setFormData({
+        const demoData = {
             emailOrUsername: account.email,
-            password: account.username + '123', // Following the pattern from authService
+            password: account.username + '123',
             rememberMe: false
-        });
+        };
+        
+        setFormData(demoData);
+        setValidationErrors({});
         setShowDemoAccounts(false);
     };
 
@@ -94,205 +128,218 @@ const LoginPage = () => {
         setShowPassword(!showPassword);
     };
 
+    const getInputClassName = (fieldName) => {
+        let baseClass = 'form-control';
+        if (validationErrors[fieldName]) {
+            baseClass += ' is-invalid';
+        }
+        return baseClass;
+    };
+
     return (
-        <>
-            <DemoInstructions />
-            <div className="login-container">
-                <div className="login-background">
-                    <div className="login-overlay"></div>
-                </div>
+        <div className="min-vh-100 d-flex align-items-center justify-content-center" 
+             style={{
+                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                 fontFamily: 'Arial, sans-serif'
+             }}>
             
-            <div className="container-fluid h-100">
-                <div className="row h-100 align-items-center justify-content-center">
-                    <div className="col-lg-10 col-xl-8">
-                        <div className="row h-100">
-                            {/* Left Side - Branding */}
-                            <div className="col-lg-6 d-flex align-items-center justify-content-center login-left">
-                                <div className="text-center text-white p-5">
-                                    <div className="mb-4">
-                                        <div className="login-logo">
-                                            <div className="logo-icon">
-                                                <i className="fas fa-dumbbell"></i>
-                                            </div>
+            <div className="container">
+                <div className="row justify-content-center">
+                    <div className="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5">
+                        <div className="card shadow-lg border-0" style={{ borderRadius: '1rem' }}>
+                            <div className="card-body p-5">
+                                {/* Header Section */}
+                                <div className="text-center mb-4">
+                                    <div className="mb-3">
+                                        <div className="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle mb-3"
+                                             style={{ width: '80px', height: '80px', fontSize: '2rem' }}>
+                                            <Dumbbell size={40} />
                                         </div>
                                     </div>
-                                    <h1 className="display-4 fw-bold mb-4">
-                                        FitnessPro
-                                        <span className="d-block fs-3 fw-normal mt-2 text-accent">
-                                            Your Ultimate Gym Experience
-                                        </span>
+                                    <h1 className="h3 fw-bold text-dark mb-2">
+                                        Hệ thống quản lý phòng tập Gym
                                     </h1>
-                                    <p className="lead mb-4 opacity-90">
-                                        Transform your fitness journey with our comprehensive gym management system.
-                                        Train smart, stay strong, achieve your goals.
+                                    <p className="text-muted small mb-0">
+                                        Đăng nhập để truy cập vào hệ thống
                                     </p>
-                                    <div className="login-features">
-                                        <div className="feature-item">
-                                            <CheckCircle size={20} className="me-2" />
-                                            <span>Professional Training Programs</span>
-                                        </div>
-                                        <div className="feature-item">
-                                            <CheckCircle size={20} className="me-2" />
-                                            <span>Modern Equipment & Facilities</span>
-                                        </div>
-                                        <div className="feature-item">
-                                            <CheckCircle size={20} className="me-2" />
-                                            <span>Personal Progress Tracking</span>
-                                        </div>
-                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Right Side - Login Form */}
-                            <div className="col-lg-6 d-flex align-items-center justify-content-center">
-                                <div className="login-form-container">
-                                    <div className="card login-card">
-                                        <div className="card-body p-5">
-                                            <div className="text-center mb-4">
-                                                <h2 className="fw-bold text-primary mb-2">Welcome Back</h2>
-                                                <p className="text-muted">Sign in to access your account</p>
+                                {/* Error Alert */}
+                                {authError && (
+                                    <div className="alert alert-danger d-flex align-items-center mb-4" role="alert">
+                                        <AlertCircle size={20} className="me-2 flex-shrink-0" />
+                                        <span className="small">{authError}</span>
+                                    </div>
+                                )}
+
+                                {/* Login Form */}
+                                <form onSubmit={handleSubmit}>
+                                    {/* Email/Username Field */}
+                                    <div className="mb-3">
+                                        <label htmlFor="emailOrUsername" className="form-label fw-medium small">
+                                            Email hoặc tên đăng nhập <span className="text-danger">*</span>
+                                        </label>
+                                        <div className="input-group">
+                                            <span className="input-group-text bg-light border-end-0">
+                                                <Mail size={18} className="text-muted" />
+                                            </span>
+                                            <input
+                                                type="text"
+                                                className={getInputClassName('emailOrUsername')}
+                                                id="emailOrUsername"
+                                                name="emailOrUsername"
+                                                value={formData.emailOrUsername}
+                                                onChange={handleInputChange}
+                                                placeholder="Nhập email hoặc tên đăng nhập"
+                                                style={{ fontSize: '14px' }}
+                                                autoComplete="username"
+                                                required
+                                            />
+                                        </div>
+                                        {validationErrors.emailOrUsername && (
+                                            <div className="invalid-feedback d-block small">
+                                                {validationErrors.emailOrUsername}
                                             </div>
+                                        )}
+                                    </div>
 
-                                            {error && (
-                                                <div className="alert alert-danger d-flex align-items-center mb-4" role="alert">
-                                                    <AlertCircle size={20} className="me-2" />
-                                                    <span>{error}</span>
-                                                </div>
-                                            )}
-
-                                            <form onSubmit={handleSubmit}>
-                                                <div className="mb-3">
-                                                    <label htmlFor="emailOrUsername" className="form-label fw-medium">
-                                                        Email or Username
-                                                    </label>
-                                                    <div className="input-group">
-                                                        <span className="input-group-text">
-                                                            <Mail size={20} />
-                                                        </span>
-                                                        <input
-                                                            type="text"
-                                                            className="form-control"
-                                                            id="emailOrUsername"
-                                                            name="emailOrUsername"
-                                                            value={formData.emailOrUsername}
-                                                            onChange={handleInputChange}
-                                                            placeholder="Enter your email or username"
-                                                            required
-                                                        />
-                                                    </div>
-                                                </div>
-
-                                                <div className="mb-3">
-                                                    <label htmlFor="password" className="form-label fw-medium">
-                                                        Password
-                                                    </label>
-                                                    <div className="input-group">
-                                                        <span className="input-group-text">
-                                                            <Lock size={20} />
-                                                        </span>
-                                                        <input
-                                                            type={showPassword ? "text" : "password"}
-                                                            className="form-control"
-                                                            id="password"
-                                                            name="password"
-                                                            value={formData.password}
-                                                            onChange={handleInputChange}
-                                                            placeholder="Enter your password"
-                                                            required
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-outline-secondary"
-                                                            onClick={togglePasswordVisibility}
-                                                        >
-                                                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                <div className="mb-4">
-                                                    <div className="form-check">
-                                                        <input
-                                                            className="form-check-input"
-                                                            type="checkbox"
-                                                            id="rememberMe"
-                                                            name="rememberMe"
-                                                            checked={formData.rememberMe}
-                                                            onChange={handleInputChange}
-                                                        />
-                                                        <label className="form-check-label" htmlFor="rememberMe">
-                                                            Remember me for 30 days
-                                                        </label>
-                                                    </div>
-                                                </div>
-
-                                                <button
-                                                    type="submit"
-                                                    className="btn btn-primary w-100 mb-3 py-2 fw-medium"
-                                                    disabled={isLoading}
-                                                >
-                                                    {isLoading ? (
-                                                        <>
-                                                            <Loader size={20} className="spinner-border spinner-border-sm me-2" />
-                                                            Signing in...
-                                                        </>
-                                                    ) : (
-                                                        'Sign In'
-                                                    )}
-                                                </button>
-                                            </form>
-
-                                            <div className="text-center">
-                                                <hr className="my-4" />
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline-secondary w-100"
-                                                    onClick={() => setShowDemoAccounts(!showDemoAccounts)}
-                                                >
-                                                    <User size={20} className="me-2" />
-                                                    View Demo Accounts
-                                                </button>
+                                    {/* Password Field */}
+                                    <div className="mb-3">
+                                        <label htmlFor="password" className="form-label fw-medium small">
+                                            Mật khẩu <span className="text-danger">*</span>
+                                        </label>
+                                        <div className="input-group">
+                                            <span className="input-group-text bg-light border-end-0">
+                                                <Lock size={18} className="text-muted" />
+                                            </span>
+                                            <input
+                                                type={showPassword ? "text" : "password"}
+                                                className={getInputClassName('password')}
+                                                id="password"
+                                                name="password"
+                                                value={formData.password}
+                                                onChange={handleInputChange}
+                                                placeholder="Nhập mật khẩu"
+                                                style={{ fontSize: '14px' }}
+                                                autoComplete="current-password"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                className="btn btn-outline-secondary border-start-0"
+                                                onClick={togglePasswordVisibility}
+                                                tabIndex="-1"
+                                                style={{ fontSize: '14px' }}
+                                            >
+                                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            </button>
+                                        </div>
+                                        {validationErrors.password && (
+                                            <div className="invalid-feedback d-block small">
+                                                {validationErrors.password}
                                             </div>
+                                        )}
+                                    </div>
 
-                                            {/* Demo Accounts Section */}
-                                            {showDemoAccounts && (
-                                                <div className="mt-4">
-                                                    <div className="card bg-light">
-                                                        <div className="card-header">
-                                                            <h6 className="mb-0 fw-medium">Demo Accounts</h6>
-                                                        </div>
-                                                        <div className="card-body p-3">
-                                                            <small className="text-muted d-block mb-3">
-                                                                Click on any account to auto-fill the form:
-                                                            </small>
-                                                            {demoAccounts.map((account) => (
-                                                                <div
-                                                                    key={account.id}
-                                                                    className="demo-account-item"
-                                                                    onClick={() => handleDemoLogin(account)}
-                                                                >
-                                                                    <div className="d-flex align-items-center">
-                                                                        <img
-                                                                            src={account.avatar}
-                                                                            alt={account.name}
-                                                                            className="demo-avatar me-3"
-                                                                        />
-                                                                        <div className="flex-grow-1">
-                                                                            <div className="fw-medium">{account.name}</div>
-                                                                            <small className="text-muted">
-                                                                                {account.email} • {account.role}
-                                                                            </small>
-                                                                        </div>
-                                                                        <small className="text-primary">Click to use</small>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
+                                    {/* Remember Me */}
+                                    <div className="mb-4">
+                                        <div className="form-check">
+                                            <input
+                                                className="form-check-input"
+                                                type="checkbox"
+                                                id="rememberMe"
+                                                name="rememberMe"
+                                                checked={formData.rememberMe}
+                                                onChange={handleInputChange}
+                                            />
+                                            <label className="form-check-label small" htmlFor="rememberMe">
+                                                Ghi nhớ đăng nhập trong 30 ngày
+                                            </label>
                                         </div>
                                     </div>
+
+                                    {/* Submit Button */}
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary w-100 py-2 fw-medium mb-3"
+                                        disabled={authLoading || Object.keys(validationErrors).length > 0}
+                                        style={{ fontSize: '14px' }}
+                                    >
+                                        {authLoading ? (
+                                            <>
+                                                <Loader size={18} className="spinner-border spinner-border-sm me-2" />
+                                                Đang đăng nhập...
+                                            </>
+                                        ) : (
+                                            'Đăng nhập'
+                                        )}
+                                    </button>
+                                </form>
+
+                                {/* Demo Accounts Toggle */}
+                                <div className="text-center">
+                                    <hr className="my-4" />
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline-secondary w-100"
+                                        onClick={() => setShowDemoAccounts(!showDemoAccounts)}
+                                        style={{ fontSize: '14px' }}
+                                    >
+                                        <User size={18} className="me-2" />
+                                        {showDemoAccounts ? 'Ẩn tài khoản demo' : 'Xem tài khoản demo'}
+                                    </button>
+                                </div>
+
+                                {/* Demo Accounts Section */}
+                                {showDemoAccounts && (
+                                    <div className="mt-4">
+                                        <div className="card bg-light border">
+                                            <div className="card-header bg-transparent border-bottom">
+                                                <h6 className="mb-0 fw-medium small">Tài khoản demo</h6>
+                                            </div>
+                                            <div className="card-body p-3">
+                                                <p className="small text-muted mb-3">
+                                                    Nhấp vào tài khoản để tự động điền form:
+                                                </p>
+                                                <div className="d-grid gap-2">
+                                                    {demoAccounts.map((account) => (
+                                                        <button
+                                                            key={account.id}
+                                                            type="button"
+                                                            className="btn btn-light text-start border p-3"
+                                                            onClick={() => handleDemoLogin(account)}
+                                                            style={{ fontSize: '14px' }}
+                                                        >
+                                                            <div className="d-flex align-items-center">
+                                                                <img
+                                                                    src={account.avatar}
+                                                                    alt={account.name}
+                                                                    className="rounded-circle me-3"
+                                                                    style={{ width: '40px', height: '40px', objectFit: 'cover' }}
+                                                                />
+                                                                <div className="flex-grow-1">
+                                                                    <div className="fw-medium text-dark">{account.name}</div>
+                                                                    <small className="text-muted">
+                                                                        {account.email} • {account.role}
+                                                                    </small>
+                                                                </div>
+                                                                <small className="text-primary">Nhấp để sử dụng</small>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Footer */}
+                                <div className="text-center mt-4">
+                                    <small className="text-muted">
+                                        © 2025 Hệ thống quản lý phòng tập Gym
+                                        <br />
+                                        Đại học Bách Khoa Hà Nội
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -300,7 +347,6 @@ const LoginPage = () => {
                 </div>
             </div>
         </div>
-        </>
     );
 };
 
