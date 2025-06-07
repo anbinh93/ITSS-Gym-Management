@@ -24,7 +24,7 @@ async function seed() {
     {
       name: "Admin User",
       email: "admin@gym.com",
-      password: await bcrypt.hash("admin123", 10),
+      password: await bcrypt.hash("admin123456", 10),
       role: "admin",
       gender: "Male",
       phone: "0123456789",
@@ -34,7 +34,7 @@ async function seed() {
     {
       name: "Staff Member",
       email: "staff@gym.com",
-      password: await bcrypt.hash("staff123", 10),
+      password: await bcrypt.hash("staff123456", 10),
       role: "staff",
       gender: "Female",
       phone: "0123456790",
@@ -44,7 +44,7 @@ async function seed() {
     {
       name: "Personal Trainer",
       email: "coach@gym.com",
-      password: await bcrypt.hash("coach123", 10),
+      password: await bcrypt.hash("coach123456", 10),
       role: "coach",
       gender: "Male",
       phone: "0123456791",
@@ -54,7 +54,7 @@ async function seed() {
     {
       name: "John Doe",
       email: "user@gym.com",
-      password: await bcrypt.hash("user123", 10),
+      password: await bcrypt.hash("user123456", 10),
       role: "user",
       gender: "Male",
       phone: "0123456792",

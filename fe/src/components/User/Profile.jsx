@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Form, Button, Container, Row, Col, Card, Alert, Spinner, Modal } from 'react-bootstrap';
+import { Form, Button, Container, Row, Col, Card, Alert, Spinner, Modal, Badge } from 'react-bootstrap';
 import authService from '../../services/authService';
-import { getUserById, updateUser } from '../../services/api';
+import { getUserById, updateUser, getUserProgress, getWorkoutByUser } from '../../services/api';
+import { getActiveMembership } from '../../services/membershipApi';
 
 const Profile = () => {
     // State cho thông tin người dùng
     const [profile, setProfile] = useState(null);
+    
+    // State cho membership information
+    const [membershipInfo, setMembershipInfo] = useState(null);
+    
+    // State cho workout progress
+    const [workoutStats, setWorkoutStats] = useState(null);
+    
+    // State cho workout data
+    const [workoutData, setWorkoutData] = useState([]);
 
     // State cho chế độ chỉnh sửa
     const [isEditing, setIsEditing] = useState(false);
@@ -19,6 +29,7 @@ const Profile = () => {
 
     // State cho loading
     const [loading, setLoading] = useState(false);
+    const [membershipLoading, setMembershipLoading] = useState(false);
 
     // State cho modal xác nhận
     const [showConfirm, setShowConfirm] = useState(false);
@@ -29,6 +40,8 @@ const Profile = () => {
     useEffect(() => {
         if (!user || !user._id) return;
         setLoading(true);
+        
+        // Fetch user profile data
         getUserById(user._id)
             .then(res => {
                 if (res && res.user) {
@@ -51,6 +64,35 @@ const Profile = () => {
             })
             .catch(() => setNotification({ show: true, message: 'Không thể tải thông tin người dùng', type: 'danger' }))
             .finally(() => setLoading(false));
+            
+        // Fetch membership information
+        setMembershipLoading(true);
+        getActiveMembership(user._id)
+            .then(res => {
+                if (res && res.success && res.memberships && res.memberships.length > 0) {
+                    setMembershipInfo(res.memberships[0]);
+                }
+            })
+            .catch(() => console.log('No active membership found'))
+            .finally(() => setMembershipLoading(false));
+            
+        // Fetch workout progress/stats
+        getUserProgress(user._id)
+            .then(res => {
+                if (res && res.success) {
+                    setWorkoutStats(res.data);
+                }
+            })
+            .catch(() => console.log('No workout progress found'));
+            
+        // Fetch workout history
+        getWorkoutByUser(user._id)
+            .then(res => {
+                if (res && res.success && res.workouts) {
+                    setWorkoutData(res.workouts);
+                }
+            })
+            .catch(() => console.log('No workout history found'));
     }, [user]);
 
     // Xử lý khi thay đổi input
@@ -378,21 +420,57 @@ const Profile = () => {
                             </div>
                             <h4>{profile.fullName}</h4>
                             <p className="text-muted mb-2">{profile.email}</p>
-                            <div className="mb-3">
-                                <span className="badge bg-success text-white px-3 py-2">
-                                    {profile.membershipType === 'basic' && 'Hội viên cơ bản'}
-                                    {profile.membershipType === 'standard' && 'Hội viên tiêu chuẩn'}
-                                    {profile.membershipType === 'premium' && 'Hội viên Premium'}
-                                </span>
-                            </div>
+                            
+                            {/* Membership Status */}
+                            {membershipLoading ? (
+                                <div className="mb-3">
+                                    <Spinner animation="border" size="sm" /> <small>Đang tải thông tin thành viên...</small>
+                                </div>
+                            ) : membershipInfo ? (
+                                <div className="mb-3">
+                                    <Badge bg="success" className="px-3 py-2 mb-2">
+                                        {membershipInfo.package?.name || 'Gói tập hiện tại'}
+                                    </Badge>
+                                    <div className="small text-muted">
+                                        <div>Trạng thái: <span className={`fw-bold ${membershipInfo.status === 'ACTIVE' ? 'text-success' : 'text-warning'}`}>
+                                            {membershipInfo.status === 'ACTIVE' ? 'Đang hoạt động' : membershipInfo.status}
+                                        </span></div>
+                                        <div>Thanh toán: <span className={`fw-bold ${membershipInfo.paymentStatus === 'paid' ? 'text-success' : 'text-warning'}`}>
+                                            {membershipInfo.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                                        </span></div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="mb-3">
+                                    <Badge bg="warning" className="px-3 py-2">
+                                        Chưa có gói tập
+                                    </Badge>
+                                </div>
+                            )}
+                            
+                            {/* Membership Dates */}
                             <div className="d-flex justify-content-between mt-4">
                                 <div>
                                     <small className="text-muted d-block">Ngày bắt đầu</small>
-                                    <strong>{new Date(profile.startDate).toLocaleDateString('vi-VN')}</strong>
+                                    <strong>
+                                        {membershipInfo && membershipInfo.startDate 
+                                            ? new Date(membershipInfo.startDate).toLocaleDateString('vi-VN')
+                                            : profile.startDate 
+                                                ? new Date(profile.startDate).toLocaleDateString('vi-VN')
+                                                : '---'
+                                        }
+                                    </strong>
                                 </div>
                                 <div>
                                     <small className="text-muted d-block">Ngày hết hạn</small>
-                                    <strong>{new Date(profile.expiryDate).toLocaleDateString('vi-VN')}</strong>
+                                    <strong>
+                                        {membershipInfo && membershipInfo.endDate 
+                                            ? new Date(membershipInfo.endDate).toLocaleDateString('vi-VN')
+                                            : profile.expiryDate 
+                                                ? new Date(profile.expiryDate).toLocaleDateString('vi-VN')
+                                                : '---'
+                                        }
+                                    </strong>
                                 </div>
                             </div>
                         </Card.Body>
@@ -405,33 +483,51 @@ const Profile = () => {
 
                     <Card className="shadow-sm">
                         <Card.Header className="bg-light">
-                            <h5 className="mb-0">Thông tin bổ sung</h5>
+                            <h5 className="mb-0">Thống kê tập luyện</h5>
                         </Card.Header>
                         <Card.Body>
                             <div className="mb-3">
-                                <small className="text-muted d-block">Số lần check-in gần đây</small>
+                                <small className="text-muted d-block">Tổng buổi tập</small>
                                 <div className="progress mt-1">
-                                    <div className="progress-bar bg-success" role="progressbar" style={{ width: '75%' }} aria-valuenow="75" aria-valuemin="0" aria-valuemax="100">15/20</div>
+                                    <div className="progress-bar bg-primary" role="progressbar" style={{ width: '100%' }} aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                                        {workoutData.length}
+                                    </div>
                                 </div>
                             </div>
 
                             <div className="d-flex justify-content-between mb-3">
                                 <div>
-                                    <small className="text-muted d-block">Lớp tham gia</small>
-                                    <strong>3</strong>
+                                    <small className="text-muted d-block">Tuần này</small>
+                                    <strong>
+                                        {workoutData.filter(w => {
+                                            const workoutDate = new Date(w.date);
+                                            const weekAgo = new Date();
+                                            weekAgo.setDate(weekAgo.getDate() - 7);
+                                            return workoutDate >= weekAgo;
+                                        }).length}
+                                    </strong>
                                 </div>
                                 <div>
-                                    <small className="text-muted d-block">PT session</small>
-                                    <strong>5</strong>
+                                    <small className="text-muted d-block">Tháng này</small>
+                                    <strong>
+                                        {workoutData.filter(w => {
+                                            const workoutDate = new Date(w.date);
+                                            const monthAgo = new Date();
+                                            monthAgo.setMonth(monthAgo.getMonth() - 1);
+                                            return workoutDate >= monthAgo;
+                                        }).length}
+                                    </strong>
                                 </div>
                                 <div>
-                                    <small className="text-muted d-block">Điểm thưởng</small>
-                                    <strong>250</strong>
+                                    <small className="text-muted d-block">Tổng thời gian</small>
+                                    <strong>
+                                        {Math.round(workoutData.reduce((total, w) => total + (w.durationMinutes || 0), 0) / 60)} giờ
+                                    </strong>
                                 </div>
                             </div>
 
-                            <Button variant="outline-primary" size="sm" className="w-100" href="/user/schedule">
-                                <i className="bi bi-calendar-check me-1"></i> Xem lịch tập
+                            <Button variant="outline-primary" size="sm" className="w-100" href="/user/progress">
+                                <i className="bi bi-activity me-1"></i> Xem chi tiết tiến độ
                             </Button>
                         </Card.Body>
                     </Card>

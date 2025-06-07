@@ -115,7 +115,7 @@ const LoginPage = () => {
     const handleDemoLogin = (account) => {
         const demoData = {
             emailOrUsername: account.email,
-            password: account.username + '123',
+            password: account.password,
             rememberMe: false
         };
         

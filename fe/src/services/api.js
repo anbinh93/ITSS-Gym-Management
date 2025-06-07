@@ -344,4 +344,26 @@ export async function updateUserProgress(userId, progressData) {
   });
 }
 
+// ===== WORKOUT API =====
+export async function getWorkoutByUser(userId) {
+  try {
+    return await fetchWithAuth(`${API_BASE}/api/workout/user/${userId}`);
+  } catch (error) {
+    console.error('getWorkoutByUser error:', error);
+    return { success: false, workouts: [] };
+  }
+}
+
+export async function logWorkout(workoutData) {
+  try {
+    return await fetchWithAuth(`${API_BASE}/api/workout`, {
+      method: 'POST',
+      body: JSON.stringify(workoutData)
+    });
+  } catch (error) {
+    console.error('logWorkout error:', error);
+    return { success: false, message: error.message || 'Ghi nhận buổi tập thất bại' };
+  }
+}
+
 export { fetchWithAuth };

@@ -129,12 +129,16 @@ export default function AdminPackageContent() {
     },
   ];
 
-  const handleAddPackage = () => setIsShowModalAddPackage(true);
+  const handleAddPackage = () => {
+    setPackageEdit({}); // Clear any existing package edit data
+    setIsShowModalAddPackage(true);
+  };
   const handleAddRegistration = () => setIsShowModalAddRegistration(true);
   const handleClose = () => {
     setIsShowModalAddPackage(false);
     setIsShowModalAddRegistration(false);
     setIsShowModalEditCoach(false);
+    setPackageEdit({}); // Clear package edit data when modal closes
   };
 
   const handleEditPackage = (pkg) => {
