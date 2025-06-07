@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Form, Button, Container, Row, Col, Card, Alert, Spinner, Modal } from 'react-bootstrap';
+import { Form, Button, Container, Row, Col, Card, Alert, Spinner, Modal, Badge } from 'react-bootstrap';
 import authService from '../../services/authService';
-import { getUserById, updateUser } from '../../services/api';
+import { getUserById, updateUser, getUserProgress, getWorkoutByUser } from '../../services/api';
+import { getActiveMembership } from '../../services/membershipApi';
 
 const Profile = () => {
     // State cho thông tin người dùng
     const [profile, setProfile] = useState(null);
+    
+    // State cho membership information
+    const [membershipInfo, setMembershipInfo] = useState(null);
+    
+    // State cho workout progress
+    const [workoutStats, setWorkoutStats] = useState(null);
+    
+    // State cho workout data
+    const [workoutData, setWorkoutData] = useState([]);
 
     // State cho chế độ chỉnh sửa
     const [isEditing, setIsEditing] = useState(false);
@@ -19,6 +29,7 @@ const Profile = () => {
 
     // State cho loading
     const [loading, setLoading] = useState(false);
+    const [membershipLoading, setMembershipLoading] = useState(false);
 
     // State cho modal xác nhận
     const [showConfirm, setShowConfirm] = useState(false);
@@ -29,6 +40,8 @@ const Profile = () => {
     useEffect(() => {
         if (!user || !user._id) return;
         setLoading(true);
+        
+        // Fetch user profile data
         getUserById(user._id)
             .then(res => {
                 if (res && res.user) {
@@ -51,6 +64,35 @@ const Profile = () => {
             })
             .catch(() => setNotification({ show: true, message: 'Không thể tải thông tin người dùng', type: 'danger' }))
             .finally(() => setLoading(false));
+            
+        // Fetch membership information
+        setMembershipLoading(true);
+        getActiveMembership(user._id)
+            .then(res => {
+                if (res && res.success && res.memberships && res.memberships.length > 0) {
+                    setMembershipInfo(res.memberships[0]);
+                }
+            })
+            .catch(() => console.log('No active membership found'))
+            .finally(() => setMembershipLoading(false));
+            
+        // Fetch workout progress/stats
+        getUserProgress(user._id)
+            .then(res => {
+                if (res && res.success) {
+                    setWorkoutStats(res.data);
+                }
+            })
+            .catch(() => console.log('No workout progress found'));
+            
+        // Fetch workout history
+        getWorkoutByUser(user._id)
+            .then(res => {
+                if (res && res.success && res.workouts) {
+                    setWorkoutData(res.workouts);
+                }
+            })
+            .catch(() => console.log('No workout history found'));
     }, [user]);
 
     // Xử lý khi thay đổi input
@@ -154,11 +196,29 @@ const Profile = () => {
             <Row>
                 {/* Phần thông tin cá nhân */}
                 <Col lg={8}>
-                    <Card className="shadow-sm mb-4">
-                        <Card.Header className="bg-primary text-white d-flex justify-content-between align-items-center">
-                            <h5 className="mb-0">Thông tin cá nhân</h5>
+                    <Card className="shadow-lg mb-4 border-0">
+                        <Card.Header 
+                            className="text-white d-flex justify-content-between align-items-center border-0"
+                            style={{
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                borderRadius: '12px 12px 0 0'
+                            }}
+                        >
+                            <div className="d-flex align-items-center">
+                                <i className="bi bi-person-circle me-2 fs-5"></i>
+                                <h5 className="mb-0 fw-semibold">Thông tin cá nhân</h5>
+                            </div>
                             {!isEditing && (
-                                <Button variant="light" size="sm" onClick={handleEdit}>
+                                <Button 
+                                    variant="light" 
+                                    size="sm" 
+                                    onClick={handleEdit}
+                                    className="fw-semibold"
+                                    style={{
+                                        borderRadius: '8px',
+                                        padding: '6px 12px'
+                                    }}
+                                >
                                     <i className="bi bi-pencil me-1"></i> Chỉnh sửa
                                 </Button>
                             )}
@@ -359,80 +419,265 @@ const Profile = () => {
 
                 {/* Phần ảnh đại diện và thông tin ngắn gọn */}
                 <Col lg={4}>
-                    <Card className="shadow-sm mb-4 text-center">
-                        <Card.Body>
-                            <div className="mb-3">
-                                <img
-                                    src={profile.profileImage}
-                                    alt="Profile"
-                                    className="rounded-circle mb-3"
-                                    style={{ width: '150px', height: '150px', objectFit: 'cover' }}
-                                />
+                    <Card className="shadow-lg mb-4 text-center border-0" style={{background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'}}>
+                        <Card.Body className="p-4">
+                            <div className="mb-4">
+                                <div className="position-relative d-inline-block">
+                                    <img
+                                        src={profile.profileImage}
+                                        alt="Profile"
+                                        className="rounded-circle mb-3 border border-4 border-white shadow-sm"
+                                        style={{ width: '150px', height: '150px', objectFit: 'cover' }}
+                                    />
+                                    {isEditing && (
+                                        <div className="position-absolute bottom-0 end-0">
+                                            <Button variant="primary" size="sm" className="rounded-circle p-2">
+                                                <i className="bi bi-camera"></i>
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
                                 {isEditing && (
                                     <div>
-                                        <Button variant="outline-primary" size="sm" className="mt-2">
+                                        <Button variant="outline-primary" size="sm" className="mt-2 fw-semibold">
                                             <i className="bi bi-upload me-1"></i> Thay đổi ảnh
                                         </Button>
                                     </div>
                                 )}
                             </div>
-                            <h4>{profile.fullName}</h4>
-                            <p className="text-muted mb-2">{profile.email}</p>
-                            <div className="mb-3">
-                                <span className="badge bg-success text-white px-3 py-2">
-                                    {profile.membershipType === 'basic' && 'Hội viên cơ bản'}
-                                    {profile.membershipType === 'standard' && 'Hội viên tiêu chuẩn'}
-                                    {profile.membershipType === 'premium' && 'Hội viên Premium'}
-                                </span>
-                            </div>
-                            <div className="d-flex justify-content-between mt-4">
-                                <div>
-                                    <small className="text-muted d-block">Ngày bắt đầu</small>
-                                    <strong>{new Date(profile.startDate).toLocaleDateString('vi-VN')}</strong>
+                            <h4 className="fw-bold text-dark mb-2">{profile.fullName}</h4>
+                            <p className="text-muted mb-3 fw-medium">{profile.email}</p>
+                            
+                            {/* Membership Status */}
+                            {membershipLoading ? (
+                                <div className="mb-4">
+                                    <div className="d-flex align-items-center justify-content-center">
+                                        <Spinner animation="border" size="sm" className="me-2" /> 
+                                        <small className="text-muted">Đang tải thông tin thành viên...</small>
+                                    </div>
                                 </div>
-                                <div>
-                                    <small className="text-muted d-block">Ngày hết hạn</small>
-                                    <strong>{new Date(profile.expiryDate).toLocaleDateString('vi-VN')}</strong>
+                            ) : membershipInfo ? (
+                                <div className="mb-4">
+                                    <div className="bg-white rounded-4 p-3 mb-3 shadow-sm">
+                                        <Badge 
+                                            className="px-3 py-2 mb-3 fs-6 fw-semibold"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                border: 'none'
+                                            }}
+                                        >
+                                            <i className="bi bi-star-fill me-1"></i>
+                                            {membershipInfo.package?.name || 'Gói tập hiện tại'}
+                                        </Badge>
+                                        <div className="small">
+                                            <div className="d-flex justify-content-between align-items-center mb-2">
+                                                <span className="text-muted">Trạng thái:</span>
+                                                <span className={`fw-bold ${membershipInfo.status === 'ACTIVE' ? 'text-success' : 'text-warning'}`}>
+                                                    <i className={`bi ${membershipInfo.status === 'ACTIVE' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-1`}></i>
+                                                    {membershipInfo.status === 'ACTIVE' ? 'Đang hoạt động' : membershipInfo.status}
+                                                </span>
+                                            </div>
+                                            <div className="d-flex justify-content-between align-items-center">
+                                                <span className="text-muted">Thanh toán:</span>
+                                                <span className={`fw-bold ${membershipInfo.paymentStatus === 'paid' ? 'text-success' : 'text-warning'}`}>
+                                                    <i className={`bi ${membershipInfo.paymentStatus === 'paid' ? 'bi-check-circle-fill' : 'bi-clock-fill'} me-1`}></i>
+                                                    {membershipInfo.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
+                            ) : (
+                                <div className="mb-4">
+                                    <div className="bg-white rounded-4 p-3 shadow-sm">
+                                        <Badge bg="warning" className="px-3 py-2 fs-6 fw-semibold">
+                                            <i className="bi bi-exclamation-triangle me-1"></i>
+                                            Chưa có gói tập
+                                        </Badge>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Membership Dates */}
+                            <div className="bg-white rounded-4 p-3 mb-4 shadow-sm">
+                                <Row>
+                                    <Col xs={6} className="text-start">
+                                        <small className="text-muted d-block fw-semibold">Ngày bắt đầu</small>
+                                        <div className="fw-bold text-dark">
+                                            {membershipInfo && membershipInfo.startDate 
+                                                ? new Date(membershipInfo.startDate).toLocaleDateString('vi-VN')
+                                                : profile.startDate 
+                                                    ? new Date(profile.startDate).toLocaleDateString('vi-VN')
+                                                    : '---'
+                                            }
+                                        </div>
+                                    </Col>
+                                    <Col xs={6} className="text-end">
+                                        <small className="text-muted d-block fw-semibold">Ngày hết hạn</small>
+                                        <div className="fw-bold text-dark">
+                                            {membershipInfo && membershipInfo.endDate 
+                                                ? new Date(membershipInfo.endDate).toLocaleDateString('vi-VN')
+                                                : profile.expiryDate 
+                                                    ? new Date(profile.expiryDate).toLocaleDateString('vi-VN')
+                                                    : '---'
+                                            }
+                                        </div>
+                                    </Col>
+                                </Row>
                             </div>
                         </Card.Body>
-                        <Card.Footer className="bg-white">
-                            <Button variant="outline-primary" className="w-100" href="/user/package">
-                                <i className="bi bi-arrow-repeat me-1"></i> Gia hạn thành viên
+                        <Card.Footer className="bg-transparent border-0 pb-4">
+                            <Button 
+                                variant="primary" 
+                                className="w-100 fw-semibold py-2"
+                                href="/user/package"
+                                style={{
+                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                    border: 'none',
+                                    borderRadius: '12px'
+                                }}
+                            >
+                                <i className="bi bi-arrow-repeat me-2"></i> 
+                                Gia hạn thành viên
                             </Button>
                         </Card.Footer>
                     </Card>
 
                     <Card className="shadow-sm">
-                        <Card.Header className="bg-light">
-                            <h5 className="mb-0">Thông tin bổ sung</h5>
+                        <Card.Header className="bg-gradient text-white" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
+                            <div className="d-flex align-items-center">
+                                <i className="bi bi-activity me-2"></i>
+                                <h5 className="mb-0">Thống kê tập luyện</h5>
+                            </div>
                         </Card.Header>
-                        <Card.Body>
-                            <div className="mb-3">
-                                <small className="text-muted d-block">Số lần check-in gần đây</small>
-                                <div className="progress mt-1">
-                                    <div className="progress-bar bg-success" role="progressbar" style={{ width: '75%' }} aria-valuenow="75" aria-valuemin="0" aria-valuemax="100">15/20</div>
+                        <Card.Body className="p-4">
+                            {/* Total workouts with visual progress */}
+                            <div className="mb-4">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <small className="text-muted fw-semibold">Tổng số buổi tập</small>
+                                    <span className="badge bg-primary fs-6">{workoutData.length}</span>
+                                </div>
+                                <div className="progress" style={{height: '8px'}}>
+                                    <div 
+                                        className="progress-bar bg-gradient" 
+                                        role="progressbar" 
+                                        style={{ 
+                                            width: workoutData.length > 0 ? '100%' : '0%',
+                                            background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)'
+                                        }} 
+                                        aria-valuenow="100" 
+                                        aria-valuemin="0" 
+                                        aria-valuemax="100"
+                                    ></div>
                                 </div>
                             </div>
 
-                            <div className="d-flex justify-content-between mb-3">
-                                <div>
-                                    <small className="text-muted d-block">Lớp tham gia</small>
-                                    <strong>3</strong>
+                            {/* Workout frequency stats */}
+                            <Row className="mb-4">
+                                <Col xs={4} className="text-center">
+                                    <div className="border rounded-3 p-3 h-100" style={{backgroundColor: '#f8f9ff'}}>
+                                        <div className="fs-4 fw-bold text-primary mb-1">
+                                            {workoutData.filter(w => {
+                                                const workoutDate = new Date(w.date);
+                                                const weekAgo = new Date();
+                                                weekAgo.setDate(weekAgo.getDate() - 7);
+                                                return workoutDate >= weekAgo;
+                                            }).length}
+                                        </div>
+                                        <small className="text-muted fw-semibold">Tuần này</small>
+                                    </div>
+                                </Col>
+                                <Col xs={4} className="text-center">
+                                    <div className="border rounded-3 p-3 h-100" style={{backgroundColor: '#fff8f0'}}>
+                                        <div className="fs-4 fw-bold text-warning mb-1">
+                                            {workoutData.filter(w => {
+                                                const workoutDate = new Date(w.date);
+                                                const monthAgo = new Date();
+                                                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                                                return workoutDate >= monthAgo;
+                                            }).length}
+                                        </div>
+                                        <small className="text-muted fw-semibold">Tháng này</small>
+                                    </div>
+                                </Col>
+                                <Col xs={4} className="text-center">
+                                    <div className="border rounded-3 p-3 h-100" style={{backgroundColor: '#f0fff4'}}>
+                                        <div className="fs-4 fw-bold text-success mb-1">
+                                            {Math.round(workoutData.reduce((total, w) => total + (w.durationMinutes || 0), 0) / 60) || 0}
+                                        </div>
+                                        <small className="text-muted fw-semibold">Tổng giờ</small>
+                                    </div>
+                                </Col>
+                            </Row>
+
+                            {/* Average workout duration */}
+                            <div className="mb-4">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <small className="text-muted fw-semibold">Thời gian tập trung bình</small>
+                                    <span className="text-info fw-bold">
+                                        {workoutData.length > 0 
+                                            ? Math.round(workoutData.reduce((total, w) => total + (w.durationMinutes || 0), 0) / workoutData.length)
+                                            : 0
+                                        } phút
+                                    </span>
                                 </div>
-                                <div>
-                                    <small className="text-muted d-block">PT session</small>
-                                    <strong>5</strong>
-                                </div>
-                                <div>
-                                    <small className="text-muted d-block">Điểm thưởng</small>
-                                    <strong>250</strong>
+                                <div className="progress" style={{height: '6px'}}>
+                                    <div 
+                                        className="progress-bar bg-info" 
+                                        role="progressbar" 
+                                        style={{ 
+                                            width: workoutData.length > 0 
+                                                ? `${Math.min((workoutData.reduce((total, w) => total + (w.durationMinutes || 0), 0) / workoutData.length) / 60 * 100, 100)}%`
+                                                : '0%'
+                                        }}
+                                    ></div>
                                 </div>
                             </div>
 
-                            <Button variant="outline-primary" size="sm" className="w-100" href="/user/schedule">
-                                <i className="bi bi-calendar-check me-1"></i> Xem lịch tập
-                            </Button>
+                            {/* Recent workout activity */}
+                            {workoutData.length > 0 && (
+                                <div className="mb-3">
+                                    <small className="text-muted fw-semibold d-block mb-2">Hoạt động gần đây</small>
+                                    <div className="bg-light rounded-3 p-3">
+                                        {workoutData.slice(0, 3).map((workout, index) => (
+                                            <div key={index} className={`d-flex justify-content-between align-items-center ${index < 2 ? 'mb-2 pb-2 border-bottom' : ''}`}>
+                                                <div>
+                                                    <div className="fw-semibold text-dark" style={{fontSize: '0.9rem'}}>
+                                                        {new Date(workout.date).toLocaleDateString('vi-VN')}
+                                                    </div>
+                                                    <small className="text-muted">
+                                                        {workout.notes || 'Buổi tập luyện'}
+                                                    </small>
+                                                </div>
+                                                <span className="badge bg-secondary">
+                                                    {workout.durationMinutes || 0} phút
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="d-grid gap-2">
+                                <Button 
+                                    variant="outline-primary" 
+                                    href="/user/progress"
+                                    className="fw-semibold"
+                                    style={{borderWidth: '2px'}}
+                                >
+                                    <i className="bi bi-graph-up me-2"></i> 
+                                    Xem chi tiết tiến độ
+                                </Button>
+                                <Button 
+                                    variant="success" 
+                                    href="/user/workout"
+                                    className="fw-semibold"
+                                    size="sm"
+                                >
+                                    <i className="bi bi-plus-circle me-2"></i> 
+                                    Thêm buổi tập mới
+                                </Button>
+                            </div>
                         </Card.Body>
                     </Card>
                 </Col>

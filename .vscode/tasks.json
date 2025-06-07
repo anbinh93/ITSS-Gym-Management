@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Start Frontend Dev Server",
+			"type": "shell",
+			"command": "cd /Users/nguyenbinhan/Workspace/DE/git/ITSS-Gym-Management/fe && npm start",
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

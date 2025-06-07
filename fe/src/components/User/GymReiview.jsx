@@ -1,61 +1,112 @@
 import React, { useState, useEffect } from 'react';
 import './GymReview.css';
+import { submitFeedback, getFeedbacksByTarget, getAllUsers } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { authService } from '../../services/authService';
 
 const GymReview = () => {
+    const { user } = useAuth();
     // State for managing which review form is active
     const [activeReviewType, setActiveReviewType] = useState(null);
     const [reviewSubmitted, setReviewSubmitted] = useState(false);
     const [trainers, setTrainers] = useState([]);
+    const [staff, setStaff] = useState([]);
     const [selectedTrainer, setSelectedTrainer] = useState(null);
+    const [selectedStaff, setSelectedStaff] = useState(null);
     const [rating, setRating] = useState(0);
     const [hoverRating, setHoverRating] = useState(0);
     const [reviewText, setReviewText] = useState('');
-    const [userName, setUserName] = useState('');
-    const [userEmail, setUserEmail] = useState('');
     const [recentReviews, setRecentReviews] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
 
-    // Mock data for trainers
+    // Fetch real data from API
     useEffect(() => {
-        // This would typically come from an API
-        const mockTrainers = [
-            { id: 1, name: 'An Bình Nguyễn ', specialization: 'Cardio & HIIT', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
-            { id: 2, name: 'An Bình Nguyễn ', specialization: 'Yoga & Pilates', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
-            { id: 3, name: 'An Bình Nguyễn', specialization: 'Strength & Conditioning', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
-            { id: 4, name: 'An Bình Nguyễn', specialization: 'CrossFit', image: 'https://randomuser.me/api/portraits/men/1.jpg' },
-            { id: 5, name: 'An Bình Nguyễn', specialization: 'Nutrition & Weight Loss', image: 'https://randomuser.me/api/portraits/men/1.jpg' }
-        ];
-        setTrainers(mockTrainers);
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                
+                // Fetch all users to get trainers and staff
+                const usersRes = await getAllUsers();
+                if (usersRes.success) {
+                    const allUsers = usersRes.users || usersRes.data || [];
+                    
+                    // Filter trainers (coaches)
+                    const trainerList = allUsers.filter(u => u.role === 'coach').map(trainer => ({
+                        id: trainer._id,
+                        name: trainer.name,
+                        specialization: 'Huấn luyện viên',
+                        image: trainer.avatar || 'https://randomuser.me/api/portraits/men/1.jpg'
+                    }));
+                    setTrainers(trainerList);
 
-        // Mock recent reviews
-        const mockReviews = [
-            {
-                id: 1,
-                type: 'gym',
-                userName: 'PMQ',
-                rating: 5,
-                date: '15/05/2025',
-                comment: 'Phòng gym rất sạch sẽ, trang thiết bị hiện đại và đầy đủ. Nhân viên phục vụ nhiệt tình.'
-            },
-            {
-                id: 2,
-                type: 'trainer',
-                trainerName: 'An BìnhNguyen',
-                userName: 'Wean Lee',
-                rating: 4,
-                date: '10/05/2025',
-                comment: 'HLV rất chuyên nghiệp, nhiệt tình hướng dẫn và theo dõi tiến độ của tôi.'
-            },
-            {
-                id: 3,
-                type: 'gym',
-                userName: 'Quyết Phạm',
-                rating: 4,
-                date: '05/05/2025',
-                comment: 'Không gian tập luyện rộng rãi, thoáng mát. Có nhiều loại máy tập đa dạng.'
+                    // Filter staff
+                    const staffList = allUsers.filter(u => u.role === 'staff').map(staffMember => ({
+                        id: staffMember._id,
+                        name: staffMember.name,
+                        department: 'Nhân viên hỗ trợ',
+                        image: staffMember.avatar || 'https://randomuser.me/api/portraits/women/1.jpg'
+                    }));
+                    setStaff(staffList);
+                }
+
+                // Fetch recent reviews for display
+                await fetchRecentReviews();
+                
+            } catch (err) {
+                setError('Lỗi tải dữ liệu: ' + (err.message || 'Unknown error'));
+                console.error('Error fetching data:', err);
+            } finally {
+                setLoading(false);
             }
-        ];
-        setRecentReviews(mockReviews);
+        };
+
+        fetchData();
     }, []);
+
+    // Fetch recent reviews from API
+    const fetchRecentReviews = async () => {
+        try {
+            const gymReviews = await getFeedbacksByTarget('GYM');
+            const staffReviews = await getFeedbacksByTarget('STAFF'); 
+            const trainerReviews = await getFeedbacksByTarget('TRAINER');
+
+            const allReviews = [
+                ...(gymReviews.feedbacks || []).map(fb => ({
+                    id: fb._id,
+                    type: 'gym',
+                    userName: fb.user?.name || 'Ẩn danh',
+                    rating: fb.rating,
+                    date: new Date(fb.createdAt).toLocaleDateString('vi-VN'),
+                    comment: fb.message
+                })),
+                ...(staffReviews.feedbacks || []).map(fb => ({
+                    id: fb._id,
+                    type: 'staff',
+                    staffName: fb.relatedUser?.name,
+                    userName: fb.user?.name || 'Ẩn danh',
+                    rating: fb.rating,
+                    date: new Date(fb.createdAt).toLocaleDateString('vi-VN'),
+                    comment: fb.message
+                })),
+                ...(trainerReviews.feedbacks || []).map(fb => ({
+                    id: fb._id,
+                    type: 'trainer',
+                    trainerName: fb.relatedUser?.name,
+                    userName: fb.user?.name || 'Ẩn danh',
+                    rating: fb.rating,
+                    date: new Date(fb.createdAt).toLocaleDateString('vi-VN'),
+                    comment: fb.message
+                }))
+            ];
+
+            // Sort by creation date (newest first)
+            allReviews.sort((a, b) => new Date(b.date) - new Date(a.date));
+            setRecentReviews(allReviews.slice(0, 6)); // Show only 6 most recent
+        } catch (err) {
+            console.error('Error fetching recent reviews:', err);
+        }
+    };
 
     // Handle selecting a review type
     const handleSelectReviewType = (type) => {
@@ -69,14 +120,19 @@ const GymReview = () => {
         setHoverRating(0);
         setReviewText('');
         setSelectedTrainer(null);
-        setUserName('');
-        setUserEmail('');
+        setSelectedStaff(null);
         setReviewSubmitted(false);
+        setError('');
     };
 
     // Handle trainer selection
     const handleSelectTrainer = (trainer) => {
         setSelectedTrainer(trainer);
+    };
+
+    // Handle staff selection
+    const handleSelectStaff = (staffMember) => {
+        setSelectedStaff(staffMember);
     };
 
     // Handle star rating hover and click
@@ -93,40 +149,92 @@ const GymReview = () => {
     };
 
     // Submit review
-    const handleSubmitReview = (e) => {
+    const handleSubmitReview = async (e) => {
         e.preventDefault();
 
-        // Here you would typically send the review data to your backend
-        console.log('Review submitted:', {
-            type: activeReviewType,
-            trainer: selectedTrainer,
-            rating,
-            reviewText,
-            userName,
-            userEmail
-        });
+        // Enhanced authentication check with fallback
+        let currentUser = user;
+        
+        // If AuthContext user is null, try getting from authService
+        if (!currentUser) {
+            currentUser = authService.getCurrentUser();
+            console.log('AuthContext user is null, trying authService:', currentUser);
+        }
 
-        // For demo purposes, we'll just show a success message
-        setReviewSubmitted(true);
+        // Debug logging
+        console.log('AuthContext user:', user);
+        console.log('AuthService user:', authService.getCurrentUser());
+        console.log('Token exists:', !!authService.getToken());
+        console.log('Is authenticated:', authService.isAuthenticated());
 
-        // Add the new review to recent reviews (in a real app, this would come from the server)
-        const newReview = {
-            id: recentReviews.length + 1,
-            type: activeReviewType,
-            trainerName: selectedTrainer?.name,
-            userName,
-            rating,
-            date: new Date().toLocaleDateString('vi-VN'),
-            comment: reviewText
-        };
+        if (!currentUser) {
+            setError('Bạn cần đăng nhập để gửi đánh giá');
+            return;
+        }
 
-        setRecentReviews([newReview, ...recentReviews]);
+        if (rating === 0) {
+            setError('Vui lòng chọn số sao đánh giá');
+            return;
+        }
 
-        // Reset form after 3 seconds
-        setTimeout(() => {
-            resetForm();
-            setActiveReviewType(null);
-        }, 3000);
+        if (!reviewText.trim()) {
+            setError('Vui lòng nhập nội dung đánh giá');
+            return;
+        }
+
+        // Validate specific requirements for each type
+        if (activeReviewType === 'trainer' && !selectedTrainer) {
+            setError('Vui lòng chọn huấn luyện viên');
+            return;
+        }
+
+        if (activeReviewType === 'staff' && !selectedStaff) {
+            setError('Vui lòng chọn nhân viên');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError('');
+
+            const feedbackData = {
+                userId: currentUser.id || currentUser._id,
+                rating: rating,
+                message: reviewText,
+                target: activeReviewType.toUpperCase(),
+                relatedUser: null
+            };
+
+            // Set relatedUser for trainer or staff feedback
+            if (activeReviewType === 'trainer') {
+                feedbackData.relatedUser = selectedTrainer.id;
+            } else if (activeReviewType === 'staff') {
+                feedbackData.relatedUser = selectedStaff.id;
+            }
+
+            const result = await submitFeedback(feedbackData);
+
+            if (result.success) {
+                setReviewSubmitted(true);
+                
+                // Refresh recent reviews to show the new one
+                await fetchRecentReviews();
+
+                // Reset form after 3 seconds
+                setTimeout(() => {
+                    resetForm();
+                    setActiveReviewType(null);
+                }, 3000);
+            } else {
+                setError('Gửi đánh giá thất bại: ' + (result.message || 'Lỗi không xác định'));
+            }
+
+        } catch (err) {
+            setError('Lỗi kết nối: ' + (err.message || 'Không thể gửi đánh giá'));
+            console.error('Error submitting review:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Render stars for rating input
@@ -150,6 +258,52 @@ const GymReview = () => {
                 <span className="ms-2 text-muted">
                     {rating > 0 ? `${rating}/5` : 'Chưa đánh giá'}
                 </span>
+            </div>
+        );
+    };
+
+    // Render staff selection list
+    const renderStaffSelection = () => {
+        return (
+            <div className="staff-selection mb-4">
+                <label className="form-label">Chọn Nhân Viên:</label>
+                <div className="row row-cols-1 row-cols-md-3 g-3">
+                    {staff.map(staffMember => (
+                        <div className="col" key={staffMember.id}>
+                            <div
+                                className={`card h-100 staff-card ${selectedStaff?.id === staffMember.id ? 'selected' : ''}`}
+                                onClick={() => handleSelectStaff(staffMember)}
+                            >
+                                <div className="row g-0">
+                                    <div className="col-4">
+                                        <img
+                                            src={staffMember.image}
+                                            className="rounded-start staff-img"
+                                            alt={staffMember.name}
+                                        />
+                                    </div>
+                                    <div className="col-8">
+                                        <div className="card-body py-2">
+                                            <h6 className="card-title mb-1">{staffMember.name}</h6>
+                                            <p className="card-text small text-muted">{staffMember.department}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                {staff.length === 0 && (
+                    <div className="text-muted text-center py-3">
+                        Không có nhân viên nào để đánh giá
+                    </div>
+                )}
+                {selectedStaff && (
+                    <div className="mt-2 text-success">
+                        <i className="bi bi-check-circle-fill me-1"></i>
+                        Đã chọn: {selectedStaff.name}
+                    </div>
+                )}
             </div>
         );
     };
@@ -185,6 +339,11 @@ const GymReview = () => {
                         </div>
                     ))}
                 </div>
+                {trainers.length === 0 && (
+                    <div className="text-muted text-center py-3">
+                        Không có huấn luyện viên nào để đánh giá
+                    </div>
+                )}
                 {selectedTrainer && (
                     <div className="mt-2 text-success">
                         <i className="bi bi-check-circle-fill me-1"></i>
@@ -226,39 +385,25 @@ const GymReview = () => {
                             ></textarea>
                         </div>
 
-                        <div className="row mb-3">
-                            <div className="col-md-6">
-                                <label htmlFor="userName" className="form-label">Họ tên:</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    id="userName"
-                                    value={userName}
-                                    onChange={(e) => setUserName(e.target.value)}
-                                    required
-                                />
+                        {error && (
+                            <div className="alert alert-danger mb-3">
+                                {error}
                             </div>
-                            <div className="col-md-6">
-                                <label htmlFor="userEmail" className="form-label">Email:</label>
-                                <input
-                                    type="email"
-                                    className="form-control"
-                                    id="userEmail"
-                                    value={userEmail}
-                                    onChange={(e) => setUserEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
+                        )}
 
                         <div className="d-flex gap-2">
-                            <button type="submit" className="btn btn-primary" disabled={rating === 0}>
-                                Gửi Đánh Giá
+                            <button 
+                                type="submit" 
+                                className="btn btn-primary" 
+                                disabled={rating === 0 || loading}
+                            >
+                                {loading ? 'Đang gửi...' : 'Gửi Đánh Giá'}
                             </button>
                             <button
                                 type="button"
                                 className="btn btn-outline-secondary"
                                 onClick={() => setActiveReviewType(null)}
+                                disabled={loading}
                             >
                                 Hủy
                             </button>
@@ -302,43 +447,25 @@ const GymReview = () => {
                             ></textarea>
                         </div>
 
-                        <div className="row mb-3">
-                            <div className="col-md-6">
-                                <label htmlFor="userName" className="form-label">Họ tên:</label>
-                                <input
-                                    type="text"
-                                    className="form-control"
-                                    id="userName"
-                                    value={userName}
-                                    onChange={(e) => setUserName(e.target.value)}
-                                    required
-                                />
+                        {error && (
+                            <div className="alert alert-danger mb-3">
+                                {error}
                             </div>
-                            <div className="col-md-6">
-                                <label htmlFor="userEmail" className="form-label">Email:</label>
-                                <input
-                                    type="email"
-                                    className="form-control"
-                                    id="userEmail"
-                                    value={userEmail}
-                                    onChange={(e) => setUserEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
+                        )}
 
                         <div className="d-flex gap-2">
                             <button
                                 type="submit"
                                 className="btn btn-primary"
-                                disabled={rating === 0 || !selectedTrainer}
+                                disabled={rating === 0 || !selectedTrainer || loading}
                             >
-                                Gửi Đánh Giá
+                                {loading ? 'Đang gửi...' : 'Gửi Đánh Giá'}
                             </button>
                             <button
                                 type="button"
                                 className="btn btn-outline-secondary"
                                 onClick={() => setActiveReviewType(null)}
+                                disabled={loading}
                             >
                                 Hủy
                             </button>
@@ -360,6 +487,68 @@ const GymReview = () => {
         );
     };
 
+    // Render staff review form
+    const renderStaffReviewForm = () => {
+        return (
+            <div className="staff-review-form">
+                <h4 className="mb-4">Đánh Giá Nhân Viên</h4>
+
+                {reviewSubmitted ? (
+                    <div className="alert alert-success">
+                        <i className="bi bi-check-circle-fill me-2"></i>
+                        Cảm ơn bạn đã gửi đánh giá! Phản hồi của bạn giúp chúng tôi cải thiện chất lượng dịch vụ.
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmitReview}>
+                        {renderStaffSelection()}
+
+                        <div className="mb-3">
+                            <label className="form-label">Đánh giá nhân viên:</label>
+                            {renderStarRating()}
+                        </div>
+
+                        <div className="mb-3">
+                            <label htmlFor="reviewText" className="form-label">Nhận xét của bạn:</label>
+                            <textarea
+                                className="form-control"
+                                id="reviewText"
+                                rows="4"
+                                value={reviewText}
+                                onChange={(e) => setReviewText(e.target.value)}
+                                placeholder="Hãy chia sẻ trải nghiệm của bạn về thái độ phục vụ, hỗ trợ, và chuyên môn của nhân viên,..."
+                                required
+                            ></textarea>
+                        </div>
+
+                        {error && (
+                            <div className="alert alert-danger mb-3">
+                                {error}
+                            </div>
+                        )}
+
+                        <div className="d-flex gap-2">
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                disabled={rating === 0 || !selectedStaff || loading}
+                            >
+                                {loading ? 'Đang gửi...' : 'Gửi Đánh Giá'}
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-outline-secondary"
+                                onClick={() => setActiveReviewType(null)}
+                                disabled={loading}
+                            >
+                                Hủy
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        );
+    };
+
     // Render recent reviews section
     const renderRecentReviews = () => {
         return (
@@ -376,9 +565,11 @@ const GymReview = () => {
                                     <div className="card-header d-flex justify-content-between align-items-center">
                                         <div>
                                             <span className="badge bg-primary me-2">
-                                                {review.type === 'gym' ? 'Phòng Gym' : 'Huấn Luyện Viên'}
+                                                {review.type === 'gym' ? 'Phòng Gym' : 
+                                                 review.type === 'trainer' ? 'Huấn Luyện Viên' : 'Nhân Viên'}
                                             </span>
                                             {review.trainerName && <span className="text-muted small">- {review.trainerName}</span>}
+                                            {review.staffName && <span className="text-muted small">- {review.staffName}</span>}
                                         </div>
                                         <small className="text-muted">{review.date}</small>
                                     </div>
@@ -447,13 +638,31 @@ const GymReview = () => {
                             </div>
                         </div>
                     </div>
+                    <div className="col-md-6 mb-3">
+                        <div
+                            className="card h-100 review-option-card"
+                            onClick={() => handleSelectReviewType('staff')}
+                        >
+                            <div className="card-body text-center p-5">
+                                <div className="review-icon mb-3">
+                                    <i className="bi bi-people-fill fs-1 text-primary"></i>
+                                </div>
+                                <h5 className="card-title">Đánh Giá Nhân Viên</h5>
+                                <p className="card-text text-muted">
+                                    Chia sẻ trải nghiệm của bạn với nhân viên hỗ trợ và dịch vụ khách hàng
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
             {/* Review forms */}
             {activeReviewType && (
                 <div className="review-form-container bg-light p-4 rounded mb-4">
-                    {activeReviewType === 'gym' ? renderGymReviewForm() : renderTrainerReviewForm()}
+                    {activeReviewType === 'gym' && renderGymReviewForm()}
+                    {activeReviewType === 'trainer' && renderTrainerReviewForm()}
+                    {activeReviewType === 'staff' && renderStaffReviewForm()}
                 </div>
             )}
 

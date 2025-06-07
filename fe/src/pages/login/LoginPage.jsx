@@ -55,20 +55,23 @@ const LoginPage = () => {
     const validateField = (name, value) => {
         const errors = { ...validationErrors };
         
+        // Safely handle undefined or null values
+        const safeValue = value || '';
+        
         switch (name) {
             case 'emailOrUsername':
-                if (!value.trim()) {
+                if (!safeValue.trim()) {
                     errors[name] = 'Email hoặc tên đăng nhập là bắt buộc';
-                } else if (value.includes('@') && !/\S+@\S+\.\S+/.test(value)) {
+                } else if (safeValue.includes('@') && !/\S+@\S+\.\S+/.test(safeValue)) {
                     errors[name] = 'Định dạng email không hợp lệ';
                 } else {
                     delete errors[name];
                 }
                 break;
             case 'password':
-                if (!value.trim()) {
+                if (!safeValue.trim()) {
                     errors[name] = 'Mật khẩu là bắt buộc';
-                } else if (value.length < 8) {
+                } else if (safeValue.length < 8) {
                     errors[name] = 'Mật khẩu phải có ít nhất 8 ký tự';
                 } else {
                     delete errors[name];
@@ -115,7 +118,7 @@ const LoginPage = () => {
     const handleDemoLogin = (account) => {
         const demoData = {
             emailOrUsername: account.email,
-            password: account.username + '123',
+            password: account.username + '123', // Generate password: admin123, staff123, etc.
             rememberMe: false
         };
         

@@ -1,10 +1,12 @@
 import StaffLayout from '../../components/Staff/StaffLayout'
-function StaffCustomerPage() {
+import StaffDashboard from '../../components/Staff/StaffDashboard'
+
+function StaffDashboardPage() {
     return (
         <StaffLayout>
-            <h3>Dashboard</h3>
+            <StaffDashboard />
         </StaffLayout>
     )
 }
 
-export default StaffCustomerPage
+export default StaffDashboardPage
