@@ -12,6 +12,7 @@ import DevicePage from './pages/admin/AdminDevicePage'
 import CustomerPage from './pages/admin/AdminCustomerPage'
 import StaffPage from './pages/admin/AdminStaffPage'
 import PackagePage from './pages/admin/AdminPackagePage'
+import AdminPackageChangePage from './pages/admin/AdminPackageChangePage'
 import ReportPage from './pages/admin/AdminReportPage'
 import FeedbackPage from './pages/admin/AdminFeedbackPage'
 import GymRoom from './pages/admin/AdminGymRoomPage'
@@ -38,6 +39,7 @@ import UserDashboard from './pages/user/UserDashBoard'
 import UserSchedule from './pages/user/UserSchedule'
 import UserProgress from './pages/user/UserProgress'
 import UserMembership from './pages/user/UserMembership'
+import UserPackageChangePage from './pages/user/UserPackageChangePage'
 import UserReview from './pages/user/UserReview'
 import UserProfile from './pages/user/UserProfile'
 
@@ -109,6 +111,11 @@ function App() {
         <Route path='/admin/package-management' element={
           <ProtectedRoute allowedRoles={['admin']}>
             <PackagePage />
+          </ProtectedRoute>
+        } />
+        <Route path='/admin/package-change' element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminPackageChangePage />
           </ProtectedRoute>
         } />
         <Route path='/admin/feedback-management' element={
@@ -205,6 +212,11 @@ function App() {
         <Route path='/user/package' element={
           <ProtectedRoute allowedRoles={['user', 'admin']}>
             <UserMembership />
+          </ProtectedRoute>
+        } />
+        <Route path='/user/package-change' element={
+          <ProtectedRoute allowedRoles={['user', 'admin']}>
+            <UserPackageChangePage />
           </ProtectedRoute>
         } />
         <Route path='/user/evaluate' element={

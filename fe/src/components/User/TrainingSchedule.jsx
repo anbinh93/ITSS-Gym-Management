@@ -352,17 +352,26 @@ export default function UserTrainingSchedule() {
                                                                             <span className="badge bg-success">
                                                                                 Đã hoàn thành
                                                                             </span>
-                                                                        )}
-                                                                        {existingSession.status === 'cancelled' && (
-                                                                            <span className="badge bg-danger">
-                                                                                Đã hủy
-                                                                            </span>
-                                                                        )}
-                                                                        {!existingSession.status && (
-                                                                            <span className="badge bg-info">
-                                                                                {existingSession.isConfirmed ? 'Đã xác nhận' : 'Chờ xác nhận'}
-                                                                            </span>
-                                                                        )}
+                                                                        )}                                                        {existingSession.status === 'cancelled' && (
+                                                            <span className="badge bg-danger">
+                                                                Đã hủy
+                                                            </span>
+                                                        )}
+                                                        {!existingSession.status && (
+                                                            <>
+                                                                {existingSession.isConfirmed ? (
+                                                                    <>
+                                                                        <CheckCircle2 size={16} className="text-success me-2" />
+                                                                        <span className="badge bg-success">Đã xác nhận</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <XCircle size={16} className="text-warning me-2" />
+                                                                        <span className="badge bg-warning">Chờ xác nhận</span>
+                                                                    </>
+                                                                )}
+                                                            </>
+                                                        )}
                                                                     </div>
                                                                 ) : (
                                                                     <button 
@@ -416,27 +425,77 @@ export default function UserTrainingSchedule() {
                                                                 )}
                                                             </span>
                                                         </div>
-                                                        {session.notes && (
-                                                            <p className="text-muted small mb-3">{session.notes}</p>
-                                                        )}
-                                                        <div className="d-flex align-items-center justify-content-between">
-                                                            <div className="d-flex align-items-center">
-                                                                {session.isConfirmed ? (
-                                                                    <>
-                                                                        <CheckCircle2 size={16} className="text-success me-2" />
-                                                                        <span className="badge bg-success">Đã xác nhận</span>
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <XCircle size={16} className="text-warning me-2" />
-                                                                        <span className="badge bg-warning">Chờ xác nhận</span>
-                                                                    </>
-                                                                )}
+                                                        {session.notes && session.status === 'completed' && (
+                                                            <div className="alert alert-light border-primary bg-primary bg-opacity-10 mb-3">
+                                                                <div className="d-flex align-items-start">
+                                                                    <div className="text-primary me-2 mt-1">
+                                                                        <Award size={16} />
+                                                                    </div>
+                                                                    <div className="flex-grow-1">
+                                                                        <h6 className="alert-heading fs-6 mb-2 text-primary">
+                                                                            💬 Phản hồi từ huấn luyện viên
+                                                                        </h6>
+                                                                        <p className="mb-0 small" style={{whiteSpace: 'pre-wrap'}}>
+                                                                            {session.notes}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <small className="text-muted">
-                                                                {new Date(session.createdAt).toLocaleString('vi-VN')}
-                                                            </small>
-                                                        </div>
+                                                        )}
+                                                        {session.notes && session.status !== 'completed' && (
+                                                            <div className="mb-3">
+                                                                <small className="text-muted">
+                                                                    <strong>Ghi chú:</strong> {session.notes}
+                                                                </small>
+                                                            </div>
+                                                        )}                                        <div className="d-flex align-items-center justify-content-between">
+                                            <div className="d-flex align-items-center gap-2">
+                                                {/* Display primary status first */}
+                                                {session.status === 'scheduled' && (
+                                                    <button 
+                                                        className="btn btn-success btn-sm"
+                                                        onClick={() => handleCheckIn(session._id)}
+                                                        disabled={loading}
+                                                    >
+                                                        Check-in
+                                                    </button>
+                                                )}
+                                                {session.status === 'checked_in' && (
+                                                    <span className="badge bg-warning">
+                                                        Đã check-in - Chờ HLV check-out
+                                                    </span>
+                                                )}
+                                                {session.status === 'completed' && (
+                                                    <span className="badge bg-success">
+                                                        Đã hoàn thành
+                                                    </span>
+                                                )}
+                                                {session.status === 'cancelled' && (
+                                                    <span className="badge bg-danger">
+                                                        Đã hủy
+                                                    </span>
+                                                )}
+                                                {/* Fallback to confirmation status if no status is set */}
+                                                {!session.status && (
+                                                    <>
+                                                        {session.isConfirmed ? (
+                                                            <>
+                                                                <CheckCircle2 size={16} className="text-success me-2" />
+                                                                <span className="badge bg-success">Đã xác nhận</span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <XCircle size={16} className="text-warning me-2" />
+                                                                <span className="badge bg-warning">Chờ xác nhận</span>
+                                                            </>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                            <small className="text-muted">
+                                                {new Date(session.createdAt).toLocaleString('vi-VN')}
+                                            </small>
+                                        </div>
                                                     </div>
                                                 </div>
                                             </div>

@@ -55,3 +55,20 @@
     height: 100%;
     object-fit: cover;
 }
+
+.staff-card {
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    border: 2px solid transparent;
+}
+
+.staff-card.selected {
+    border-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.staff-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}

@@ -14,6 +14,7 @@ import workoutScheduleRouter from "./routes/workoutScheduleRoute.js";
 import progressRouter from "./routes/progressRoute.js";
 import workoutSessionRouter from "./routes/workoutSessionRoute.js";
 import workoutRouter from "./routes/workoutRoute.js";
+import packageChangeRouter from "./routes/packageChangeRoute.js";
 
 
 // app config
@@ -39,6 +40,7 @@ app.use("/api/schedule", workoutScheduleRouter);
 app.use("/api/progress", progressRouter);
 app.use("/api/workout-sessions", workoutSessionRouter);
 app.use("/api/workout", workoutRouter);
+app.use("/api/package-change", packageChangeRouter);
 
 
 app.get("/",(req,res)=>{

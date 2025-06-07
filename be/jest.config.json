@@ -1,0 +1,27 @@
+{
+  "testEnvironment": "node",
+  "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+  "testMatch": [
+    "<rootDir>/tests/**/*.test.js",
+    "<rootDir>/tests/**/*.spec.js"
+  ],
+  "collectCoverageFrom": [
+    "models/**/*.js",
+    "controllers/**/*.js",
+    "middleware/**/*.js",
+    "!models/vehicleManagementModel.js",
+    "!models/vehicleTypeModel.js"
+  ],
+  "coverageDirectory": "coverage",
+  "coverageReporters": ["text", "lcov", "html"],
+  "verbose": true,
+  "detectOpenHandles": true,
+  "forceExit": true,
+  "preset": "node",
+  "extensionsToTreatAsEsm": [".js"],
+  "globals": {
+    "__ESM": true
+  },
+  "transform": {},
+  "moduleNameMapping": {}
+}
