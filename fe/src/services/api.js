@@ -1,4 +1,4 @@
-const API_BASE = process.env.REACT_APP_API_URL || "";
+import { API_BASE } from './config';
 
 // Helper function to handle auth errors
 const handleAuthError = (response) => {
@@ -46,6 +46,12 @@ const fetchWithAuth = async (url, options = {}) => {
       return data;
   }catch(error){
     console.log("fetchWithAuth error:", error);
+    // Return error response structure instead of undefined
+    return {
+      success: false,
+      message: error.message || 'Network error',
+      error: error
+    };
   }
   
 };
@@ -282,12 +288,12 @@ export async function submitFeedback(data) {
 }
 
 // ===== STATISTICS API =====
-export async function getRevenue() {
+export async function getRevenue(period = 'month') {
   try {
-    return await fetchWithAuth(`${API_BASE}/api/statistics/revenue`);
+    return await fetchWithAuth(`${API_BASE}/api/statistics/revenue?period=${period}`);
   } catch (error) {
     console.error('getRevenue error:', error);
-    return { success: false, revenue: 0 };
+    return { success: false, revenue: 0, timeSeriesData: [], period };
   }
 }
 
@@ -311,7 +317,9 @@ export async function getStaffPerformance() {
 
 // ===== WORKOUT SCHEDULE API =====
 export async function getUserWorkoutSchedule(userId) {
-  return await fetchWithAuth(`${API_BASE}/api/schedule/user/${userId}`);
+  return await fetchWithAuth(`${API_BASE}/api/schedule/user/${userId}`, {
+    method: 'GET'
+  });
 }
 
 export async function getCoachWorkoutSchedule(coachId) {
@@ -329,4 +337,11 @@ export async function getUserProgress(userId) {
   return await fetchWithAuth(`${API_BASE}/api/progress/user/${userId}`);
 }
 
-export { fetchWithAuth }; 
+export async function updateUserProgress(userId, progressData) {
+  return await fetchWithAuth(`${API_BASE}/api/progress/user/${userId}`, {
+    method: 'PUT',
+    body: JSON.stringify(progressData)
+  });
+}
+
+export { fetchWithAuth };

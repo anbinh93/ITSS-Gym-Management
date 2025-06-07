@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import TrainerLayout from '../../components/Coach/TrainerLayout';
 import { getMembershipsByCoach } from '../../services/membershipApi';
-import { fetchWithAuth, getCurrentUser } from '../../services/api';
+import { getUserProgress, updateUserProgress, getCurrentUser, getAllUsers } from '../../services/api';
 
 const EditProgressScreen = () => {
   const [users, setUsers] = useState([]);
@@ -15,7 +15,7 @@ const EditProgressScreen = () => {
     const coach = getCurrentUser();
     if (coach && coach._id) {
       getMembershipsByCoach(coach._id).then(res => {
-        if (res && res.success) {
+        if (res && res.success && res.data && res.data.length > 0) {
           const uniqueUsers = [];
           const userIds = new Set();
           (res.data || []).forEach(m => {
@@ -25,6 +25,36 @@ const EditProgressScreen = () => {
             }
           });
           setUsers(uniqueUsers);
+        } else {
+          // Fallback: Nếu không có membership data, lấy tất cả users role='user' để test
+          getAllUsers().then(usersRes => {
+            if (usersRes && (usersRes.users || usersRes.data)) {
+              const allUsers = usersRes.users || usersRes.data;
+              const userList = allUsers.filter(u => u.role === 'user');
+              setUsers(userList);
+            }
+          }).catch(error => {
+            console.error('Error fetching all users:', error);
+          });
+        }
+      }).catch(error => {
+        console.error('Error fetching memberships:', error);
+        // Fallback to all users on error
+        getAllUsers().then(usersRes => {
+          if (usersRes && (usersRes.users || usersRes.data)) {
+            const allUsers = usersRes.users || usersRes.data;
+            const userList = allUsers.filter(u => u.role === 'user');
+            setUsers(userList);
+          }
+        });
+      });
+    } else {
+      // Fallback nếu không có coach info
+      getAllUsers().then(usersRes => {
+        if (usersRes && (usersRes.users || usersRes.data)) {
+          const allUsers = usersRes.users || usersRes.data;
+          const userList = allUsers.filter(u => u.role === 'user');
+          setUsers(userList);
         }
       });
     }
@@ -33,7 +63,7 @@ const EditProgressScreen = () => {
   useEffect(() => {
     if (selectedUser) {
       setLoading(true);
-      fetchWithAuth(`/api/progress/user/${selectedUser._id}`)
+      getUserProgress(selectedUser._id)
         .then(res => {
           if (res.success && res.progress) {
             setProgress({
@@ -44,6 +74,10 @@ const EditProgressScreen = () => {
           } else {
             setProgress({ weightHeight: [], calories: [], bodyFat: [] });
           }
+        })
+        .catch(error => {
+          console.error('Error fetching user progress:', error);
+          setProgress({ weightHeight: [], calories: [], bodyFat: [] });
         })
         .finally(() => setLoading(false));
     }
@@ -74,10 +108,7 @@ const EditProgressScreen = () => {
     setLoading(true);
     setMessage('');
     try {
-      const res = await fetchWithAuth(`/api/progress/user/${selectedUser._id}`, {
-        method: 'PUT',
-        body: JSON.stringify(progress)
-      });
+      const res = await updateUserProgress(selectedUser._id, progress);
       if (res.success) setMessage('Lưu thành công!');
       else setMessage(res.message || 'Lỗi khi lưu');
     } catch (err) {
@@ -91,6 +122,7 @@ const EditProgressScreen = () => {
     <TrainerLayout>
       <div className="container py-4">
         <h2 className="mb-4">Chỉnh sửa số liệu tiến độ học viên</h2>
+        
         <div className="mb-3">
           <label>Chọn học viên:</label>
           <select className="form-select" value={selectedUser?._id || ''} onChange={e => {

@@ -39,7 +39,8 @@ const getMembershipsByUser = async (req, res) => {
 
     try {
         const memberships = await membershipModel.find({ user: userId })
-            .populate("package");
+            .populate("package")
+            .populate("coach", "name email");
         res.json({ success: true, memberships });
     } catch (err) {
         console.log(err);
@@ -87,7 +88,7 @@ const getActiveMembership = async (req, res) => {
             paymentStatus: 'paid',
             startDate: { $lte: now },
             endDate: { $gte: now }
-        }).populate("package");
+        }).populate("package").populate("coach", "name email");
         res.json({ success: true, memberships });
     } catch (err) {
         res.json({ success: false, message: "Error fetching active membership" });

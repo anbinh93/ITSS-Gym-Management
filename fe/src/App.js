@@ -41,8 +41,6 @@ import UserMembership from './pages/user/UserMembership'
 import UserReview from './pages/user/UserReview'
 import UserProfile from './pages/user/UserProfile'
 
-import HomePage from './pages/HomePage'
-
 function App() {
   const isLoggedIn = useSelector(selectIsLoggedIn)
   const currentUser = useSelector(selectCurrentUser)
@@ -62,7 +60,7 @@ function App() {
       case 'coach':
         return <Navigate to="/coach/dashboard" replace />
       case 'user':
-        return <Navigate to="/user/dashboard" replace />
+        return <Navigate to="/user/schedule" replace />
       default:
         return <Navigate to="/login" replace />
     }
@@ -71,10 +69,11 @@ function App() {
   return (
     <div className="App">
       <Routes>
-        {/* Homepage Public Route */}
-        <Route path='/home' element={<HomePage />} />
-        <Route path='/' element={<HomePage />} />
+        {/* Login Route */}
         <Route path='/login' element={<LoginPage />} />
+        
+        {/* Root redirect - no standalone homepage */}
+        <Route path='/' element={<RootRedirect />} />
         
         {/* Admin Routes */}
         <Route path='/admin/dashboard' element={
@@ -166,14 +165,14 @@ function App() {
             <Schedule />
           </ProtectedRoute>
         } />
-        <Route path='/coach/training-progress' element={
-          <ProtectedRoute allowedRoles={['coach', 'admin']}>
-            <TrainingProgress />
-          </ProtectedRoute>
-        } />
         <Route path='/coach/training-programs' element={
           <ProtectedRoute allowedRoles={['coach', 'admin']}>
             <TrainingPrograms />
+          </ProtectedRoute>
+        } />
+        <Route path='/coach/progress' element={
+          <ProtectedRoute allowedRoles={['coach', 'admin']}>
+            <TrainingProgress />
           </ProtectedRoute>
         } />
         <Route path='/coach/profile' element={

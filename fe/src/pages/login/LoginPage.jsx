@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Lock, Mail, User, AlertCircle, CheckCircle, Loader, Dumbbell } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, User, AlertCircle, Loader, Dumbbell } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, selectIsLoggedIn, selectCurrentUser, selectAuthError, selectAuthLoading } from '../../redux/authSlice';

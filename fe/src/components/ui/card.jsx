@@ -21,7 +21,9 @@ const CardTitle = (props) => {
   return (
     <h3
       className={cn("text-lg font-semibold leading-none tracking-tight", local.class)}
-      {...others} />
+      {...others}>
+      {props.children || "Card Title"}
+    </h3>
   );
 }
 

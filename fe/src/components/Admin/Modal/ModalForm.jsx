@@ -17,7 +17,7 @@ const ModalForm = ({
   }, [data]);
 
   const handleChange = (e, field) => {
-    const { name, type, checked, value } = e.target;
+    const { name, checked, value } = e.target;
     if (field.type === 'checkbox') {
       setFormData({ ...formData, [name]: checked });
     } else {

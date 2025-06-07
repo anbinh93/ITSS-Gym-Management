@@ -30,7 +30,7 @@ export async function getActiveMembership(userId) {
     }
     try {
         const response = await fetchWithAuth(`${API_BASE}/api/membership/active/${userId}`);
-        return { success: true, ...response }; // Assumes response is already structured or just data
+        return response; // Backend already returns { success: true, memberships }
     } catch (error) {
         console.error('getActiveMembership error:', error);
         return { success: false, message: error.message || 'Lấy thông tin gói tập thất bại' };
@@ -135,7 +135,9 @@ export async function getMembershipsByCoach(coachId) {
     }
     try {
         const response = await fetchWithAuth(`${API_BASE}/api/membership/all?coach=${coachId}`);
-        return { success: true, data: response.data?.memberships || response.memberships || [] };
+        // Response structure is { success: true, memberships: [...] }
+        const memberships = response.memberships || [];
+        return { success: true, data: memberships };
     } catch (error) {
         console.error('getMembershipsByCoach error:', error);
         return { success: false, message: error.message || 'Không thể tải danh sách hội viên theo HLV.', data: [] };
@@ -143,13 +145,13 @@ export async function getMembershipsByCoach(coachId) {
 }
 
 export async function updateCoach(membershipId, coachId) {
-    if (!membershipId || !coachId) {
-        return { success: false, message: 'Membership ID và Coach ID là bắt buộc' };
+    if (!membershipId) {
+        return { success: false, message: 'Membership ID là bắt buộc' };
     }
     try {
         const response = await fetchWithAuth(`${API_BASE}/api/membership/${membershipId}/coach`, {
             method: 'PATCH',
-            body: JSON.stringify({ coach: coachId })
+            body: JSON.stringify({ coach: coachId || null })
         });
         return response;
     } catch (error) {

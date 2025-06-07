@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getActiveMembership, getMembershipHistory, registerMembership } from '../../services/membershipApi';
 import { getAllPackages } from '../../services/api';
+import { getUserWorkoutProgress } from '../../services/workoutSessionApi';
 import authService from '../../services/authService';
 
 const GymMembership = () => {
@@ -11,6 +12,7 @@ const GymMembership = () => {
     const [availablePackages, setAvailablePackages] = useState([]);
     const [memberPackages, setMemberPackages] = useState([]); // active & pending
     const [membershipHistory, setMembershipHistory] = useState([]);
+    const [workoutProgress, setWorkoutProgress] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const user = authService.getCurrentUser();
@@ -29,37 +31,50 @@ const GymMembership = () => {
         Promise.all([
             getAllPackages(),
             getActiveMembership(user._id),
-            getMembershipHistory(user._id)
-        ]).then(([pkgRes, activeRes, historyRes]) => {
+            getMembershipHistory(user._id),
+            getUserWorkoutProgress(user._id)
+        ]).then(([pkgRes, activeRes, historyRes, progressRes]) => {
             setAvailablePackages(pkgRes.packages || []);
-            // Xử lý active/pending
+            
+            // Xử lý active memberships với dữ liệu thực
             let activeList = [];
             if (activeRes.success && Array.isArray(activeRes.memberships)) {
                 activeList = activeRes.memberships.map(m => ({
                     id: m._id,
-                    name: m.packageName,
-                    benefits: m.benefits,
+                    package: m.package,
+                    coach: m.coach,
                     startDate: m.startDate ? new Date(m.startDate).toLocaleDateString('vi-VN') : '',
-                    expiration: m.expiration ? new Date(m.expiration).toLocaleDateString('vi-VN') : '',
+                    endDate: m.endDate ? new Date(m.endDate).toLocaleDateString('vi-VN') : '',
+                    sessionsRemaining: m.sessionsRemaining,
                     status: m.paymentStatus === 'paid' ? 'active' : 'pending',
-                    price: m.price
+                    paymentStatus: m.paymentStatus,
+                    isActive: m.isActive
                 }));
             }
             setMemberPackages(activeList);
-            // Lịch sử
+            
+            // Lịch sử với dữ liệu thực
             let historyList = [];
             if (historyRes.success && Array.isArray(historyRes.memberships)) {
                 historyList = historyRes.memberships.map(m => ({
                     id: m._id,
-                    name: m.packageName,
+                    package: m.package,
+                    coach: m.coach,
                     startDate: m.startDate ? new Date(m.startDate).toLocaleDateString('vi-VN') : '',
-                    expiration: m.expiration ? new Date(m.expiration).toLocaleDateString('vi-VN') : '',
+                    endDate: m.endDate ? new Date(m.endDate).toLocaleDateString('vi-VN') : '',
                     purchaseDate: m.createdAt ? new Date(m.createdAt).toLocaleDateString('vi-VN') : '',
-                    price: m.price,
-                    status: m.paymentStatus === 'paid' ? (new Date(m.expiration) < new Date() ? 'expired' : 'active') : 'pending',
+                    sessionsRemaining: m.sessionsRemaining,
+                    status: m.paymentStatus === 'paid' ? 
+                        (new Date(m.endDate) < new Date() ? 'expired' : 'active') : 'pending',
+                    paymentStatus: m.paymentStatus
                 }));
             }
             setMembershipHistory(historyList);
+            
+            // Xử lý workout progress
+            if (progressRes && progressRes.success) {
+                setWorkoutProgress(progressRes);
+            }
         }).catch(err => {
             setError('Không thể kết nối tới server hoặc tải dữ liệu gói tập.');
         }).finally(() => setLoading(false));
@@ -101,14 +116,6 @@ const GymMembership = () => {
         }
     };
 
-    // Get benefits as list items
-    const getBenefitsList = (benefits) => {
-        if (!benefits || typeof benefits !== 'string') return null;
-        return benefits.split(', ').map((benefit, index) => (
-            <li key={index} className="mb-1">{benefit}</li>
-        ));
-    };
-
     // Hiển thị các trường gói tập giống admin
     const renderPackageDetails = (pkg) => (
         <ul className="list-unstyled small">
@@ -118,12 +125,15 @@ const GymMembership = () => {
         </ul>
     );
 
-    // Lấy package chi tiết từ availablePackages theo packageId
+    // Lấy package chi tiết từ membership hoặc availablePackages
     const getPackageDetails = (membership) => {
         // Nếu membership đã populate package, ưu tiên dùng
-        if (membership.package && typeof membership.package === 'object') return membership.package;
+        if (membership.package && typeof membership.package === 'object') {
+            return membership.package;
+        }
         // Nếu không, tìm theo packageId trong availablePackages
-        return availablePackages.find(pkg => pkg._id === (membership.package?._id || membership.packageId || membership.package)) || {};
+        const packageId = membership.package?._id || membership.packageId || membership.package;
+        return availablePackages.find(pkg => pkg._id === packageId) || {};
     };
 
     // Xác nhận đăng ký gói tập
@@ -150,12 +160,14 @@ const GymMembership = () => {
                 if (activeRes.success && Array.isArray(activeRes.memberships)) {
                     activeList = activeRes.memberships.map(m => ({
                         id: m._id,
-                        name: m.packageName,
-                        benefits: m.benefits,
+                        package: m.package,
+                        coach: m.coach,
                         startDate: m.startDate ? new Date(m.startDate).toLocaleDateString('vi-VN') : '',
-                        expiration: m.expiration ? new Date(m.expiration).toLocaleDateString('vi-VN') : '',
+                        endDate: m.endDate ? new Date(m.endDate).toLocaleDateString('vi-VN') : '',
+                        sessionsRemaining: m.sessionsRemaining,
                         status: m.paymentStatus === 'paid' ? 'active' : 'pending',
-                        price: m.price
+                        paymentStatus: m.paymentStatus,
+                        isActive: m.isActive
                     }));
                 }
                 setMemberPackages(activeList);
@@ -163,12 +175,15 @@ const GymMembership = () => {
                 if (historyRes.success && Array.isArray(historyRes.memberships)) {
                     historyList = historyRes.memberships.map(m => ({
                         id: m._id,
-                        name: m.packageName,
+                        package: m.package,
+                        coach: m.coach,
                         startDate: m.startDate ? new Date(m.startDate).toLocaleDateString('vi-VN') : '',
-                        expiration: m.expiration ? new Date(m.expiration).toLocaleDateString('vi-VN') : '',
+                        endDate: m.endDate ? new Date(m.endDate).toLocaleDateString('vi-VN') : '',
                         purchaseDate: m.createdAt ? new Date(m.createdAt).toLocaleDateString('vi-VN') : '',
-                        price: m.price,
-                        status: m.paymentStatus === 'paid' ? (new Date(m.expiration) < new Date() ? 'expired' : 'active') : 'pending',
+                        sessionsRemaining: m.sessionsRemaining,
+                        status: m.paymentStatus === 'paid' ? 
+                            (new Date(m.endDate) < new Date() ? 'expired' : 'active') : 'pending',
+                        paymentStatus: m.paymentStatus
                     }));
                 }
                 setMembershipHistory(historyList);
@@ -208,7 +223,7 @@ const GymMembership = () => {
                                     <div className="card h-100 shadow-sm border-0">
                                         <div className="card-header bg-primary text-white">
                                             <div className="d-flex justify-content-between align-items-center">
-                                                <h5 className="mb-0">Gói {pkg.name}</h5>
+                                                <h5 className="mb-0">Gói {pkgDetail.name || 'Không xác định'}</h5>
                                                 {renderStatusBadge(pkg.status)}
                                             </div>
                                         </div>
@@ -216,13 +231,45 @@ const GymMembership = () => {
                                             <ul className="list-unstyled small mb-2">
                                                 <li><strong>Thời hạn:</strong> {pkgDetail.durationInDays ? pkgDetail.durationInDays + ' ngày' : ''}</li>
                                                 <li><strong>Số buổi tập:</strong> {pkgDetail.sessionLimit ?? ''}</li>
+                                                <li><strong>Số buổi còn lại:</strong> {pkg.sessionsRemaining ?? 'Không giới hạn'}</li>
+                                                <li><strong>HLV phụ trách:</strong> {pkg.coach ? pkg.coach.name : 'Chưa có'}</li>
                                                 <li><strong>HLV riêng:</strong> {pkgDetail.withTrainer ? 'Có' : 'Không'}</li>
                                                 <li><strong>Giá:</strong> {pkgDetail.price ? pkgDetail.price.toLocaleString() + ' VNĐ' : ''}</li>
                                             </ul>
                                             <div className="mt-3">
                                                 <p className="mb-1"><strong>Ngày bắt đầu:</strong> {pkg.startDate}</p>
-                                                <p className="mb-1"><strong>Ngày hết hạn:</strong> {pkg.expiration}</p>
+                                                <p className="mb-1"><strong>Ngày hết hạn:</strong> {pkg.endDate}</p>
                                             </div>
+                                            
+                                            {/* Tiến độ tập luyện mới */}
+                                            {workoutProgress && workoutProgress.progress && (
+                                                <div className="mt-3">
+                                                    <div className="d-flex justify-content-between align-items-center mb-2">
+                                                        <small><strong>Tiến độ tập luyện:</strong></small>
+                                                        <small className="text-primary font-weight-bold">
+                                                            {workoutProgress.progress.sessionsCompleted}/{workoutProgress.progress.totalSessions} buổi
+                                                        </small>
+                                                    </div>
+                                                    <div className="progress" style={{height: '8px'}}>
+                                                        <div 
+                                                            className="progress-bar bg-primary" 
+                                                            role="progressbar" 
+                                                            style={{width: `${workoutProgress.progress.completionPercentage}%`}}
+                                                            aria-valuenow={workoutProgress.progress.completionPercentage} 
+                                                            aria-valuemin="0" 
+                                                            aria-valuemax="100"
+                                                        ></div>
+                                                    </div>
+                                                    <div className="d-flex justify-content-between mt-1">
+                                                        <small className="text-muted">
+                                                            Còn lại: {workoutProgress.progress.sessionsRemaining} buổi
+                                                        </small>
+                                                        <small className="text-muted">
+                                                            {workoutProgress.progress.completionPercentage.toFixed(1)}%
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="card-footer bg-white border-0">
                                             <button
@@ -382,16 +429,34 @@ const GymMembership = () => {
                             <button type="button" className="btn-close btn-close-white" onClick={handleClose}></button>
                         </div>
                         <div className="modal-body">
-                            {membershipHistory.map((history) => (
-                                <div key={history.id} className="mb-3">
-                                    <h6>{history.name}</h6>
-                                    <p><strong>Ngày bắt đầu:</strong> {history.startDate}</p>
-                                    <p><strong>Ngày hết hạn:</strong> {history.expiration}</p>
-                                    <p><strong>Ngày mua:</strong> {history.purchaseDate}</p>
-                                    <p><strong>Trạng thái:</strong> {history.status}</p>
-                                    <p><strong>Giá:</strong> {history.price}</p>
+                            {membershipHistory.map((history) => {
+                                const pkgDetail = getPackageDetails(history);
+                                return (
+                                    <div key={history.id} className="card mb-3">
+                                        <div className="card-body">
+                                            <div className="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6>Gói {pkgDetail.name || 'Không xác định'}</h6>
+                                                    <p className="mb-1"><strong>Ngày bắt đầu:</strong> {history.startDate}</p>
+                                                    <p className="mb-1"><strong>Ngày hết hạn:</strong> {history.endDate}</p>
+                                                    <p className="mb-1"><strong>Ngày mua:</strong> {history.purchaseDate}</p>
+                                                    <p className="mb-1"><strong>HLV phụ trách:</strong> {history.coach ? history.coach.name : 'Chưa có'}</p>
+                                                    <p className="mb-1"><strong>Số buổi tập:</strong> {history.sessionsRemaining ?? 'Không giới hạn'}</p>
+                                                    <p className="mb-0"><strong>Giá:</strong> {pkgDetail.price ? pkgDetail.price.toLocaleString() + ' VNĐ' : ''}</p>
+                                                </div>
+                                                <div>
+                                                    {renderStatusBadge(history.status)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {membershipHistory.length === 0 && (
+                                <div className="alert alert-info">
+                                    Bạn chưa có lịch sử đăng ký gói tập nào.
                                 </div>
-                            ))}
+                            )}
                         </div>
                         <div className="modal-footer">
                             <button type="button" className="btn btn-secondary" onClick={handleClose}>Đóng</button>

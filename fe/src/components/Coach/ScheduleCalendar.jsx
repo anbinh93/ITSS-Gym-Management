@@ -1,62 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import { ChevronLeft, ChevronRight, Edit2, Save, X, Plus, Users, User, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Edit2, Save, X, Plus, Users, User, Search, CheckCircle2, XCircle, Award } from 'lucide-react';
 import './Schedule.css';
 import { getMembershipsByCoach } from '../../services/membershipApi';
 import { getUserWorkoutSchedule, createUserWorkoutSchedule } from '../../services/api';
+import { createWorkoutSession, confirmWorkoutSession, getUserWorkoutSessions, checkOutWorkoutSession } from '../../services/workoutSessionApi';
 import authService from '../../services/authService';
-
-// Sample data structure with multiple trainees
-const initialTrainees = [
-    { id: 1, name: 'Vũ Ngọc Duku' },
-    { id: 2, name: 'Wean Lee' },
-    { id: 3, name: 'Quyết Strong' },
-    { id: 4, name: 'Đặng Hải Anh' },
-];
-
-const initialWorkouts = {
-    1: { // Trainee ID 1
-        '2025-04-24': {
-            title: 'Tập ngực và tay sau',
-            description: 'Bench Press: 4x12\nFlying: 3x15\nTriceps Extensions: 4x12\nTriceps Dips: 3x15'
-        },
-        '2025-04-25': {
-            title: 'Chân và bụng',
-            description: 'Squat: 4x10\nLeg Press: 3x12\nCrunches: 3x20\nPlank: 3x60 giây'
-        },
-        '2025-04-26': {
-            title: 'Tập lưng và tay trước',
-            description: 'Pull-ups: 4x8\nBarbell Row: 3x12\nBiceps Curl: 4x12\nHammer Curl: 3x15'
-        },
-    },
-    2: { // Trainee ID 2
-        '2025-04-25': {
-            title: 'Cardio và Core',
-            description: 'Running: 30 phút\nPlank variations: 3 sets\nRussian twists: 3x20\nMountain climbers: 3x30 seconds'
-        },
-        '2025-04-27': {
-            title: 'Toàn thân',
-            description: 'Circuit training: 4 rounds\nBurpees: 12\nKettlebell swings: 15\nLunges: 10 mỗi chân\nPush-ups: 15'
-        }
-    },
-    3: { // Trainee ID 3
-        '2025-04-24': {
-            title: 'Vai và tay',
-            description: 'Shoulder press: 4x10\nLateral raises: 3x12\nFront raises: 3x12\nBicep curls: 4x10'
-        },
-        '2025-04-26': {
-            title: 'Ngày chân',
-            description: 'Squat: 5x5\nLunges: 3x10\nLeg extensions: 3x12\nCalf raises: 4x15'
-        }
-    },
-    4: { // Trainee ID 4
-        '2025-04-25': {
-            title: 'Yoga và Stretching',
-            description: 'Sun salutations: 10 minutes\nWarrior poses: 5 minutes\nDeep stretching: 15 minutes\nMeditation: 10 minutes'
-        }
-    }
-};
 
 function formatDateKey(date) {
     return date.toISOString().split('T')[0];
@@ -67,13 +17,20 @@ const ScheduleCalendar = () => {
     const [activeStartDate, setActiveStartDate] = useState(new Date());
     const [trainees, setTrainees] = useState([]);
     const [workouts, setWorkouts] = useState({});
+    const [workoutSessions, setWorkoutSessions] = useState({});
     const [selectedDate, setSelectedDate] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
-    const [tempWorkout, setTempWorkout] = useState({ title: '', description: '' });
+    const [tempWorkout, setTempWorkout] = useState({ 
+        title: '', 
+        description: '', 
+        startTime: '08:00',
+        endTime: '09:00',
+        createSession: false 
+    });
     const [selectedTraineeId, setSelectedTraineeId] = useState(null); // null means "All trainees"
-    const [showTraineeSelector, setShowTraineeSelector] = useState(false);
     const [loadingTrainees, setLoadingTrainees] = useState(true);
     const [errorTrainees, setErrorTrainees] = useState("");
+    const [loadingSessions, setLoadingSessions] = useState(false);
 
     useEffect(() => {
         const fetchTrainees = async () => {
@@ -89,12 +46,17 @@ const ScheduleCalendar = () => {
                 }
                 const res = await getMembershipsByCoach(coach._id);
                 if (res.success) {
-                    // Lấy danh sách user duy nhất từ memberships
+                    // Get unique users with their active membership info
                     const users = [];
                     const userIds = new Set();
                     (res.data || []).forEach(m => {
-                        if (m.user && m.user._id && !userIds.has(m.user._id)) {
-                            users.push({ id: m.user._id, name: m.user.name });
+                        if (m.user && m.user._id && !userIds.has(m.user._id) && m.isActive) {
+                            users.push({ 
+                                id: m.user._id, 
+                                name: m.user.name,
+                                membershipId: m._id,
+                                sessionsRemaining: m.sessionsRemaining
+                            });
                             userIds.add(m.user._id);
                         }
                     });
@@ -116,10 +78,9 @@ const ScheduleCalendar = () => {
     // Đảm bảo luôn fetch lịch tập khi chọn học viên, kể cả khi chọn lại cùng một học viên
     const fetchScheduleForTrainee = async (traineeId) => {
         if (!traineeId) return;
-        console.log('Gọi API lấy lịch tập cho học viên:', traineeId);
         try {
+            // Fetch schedule data
             const res = await getUserWorkoutSchedule(traineeId);
-            console.log('API response:', res);
             if (res.success) {
                 const scheduleMap = {};
                 scheduleMap[traineeId] = {};
@@ -134,6 +95,14 @@ const ScheduleCalendar = () => {
                     });
                 });
                 setWorkouts(prev => ({ ...prev, ...scheduleMap }));
+            }
+
+            // Fetch workout sessions
+            const sessionsRes = await getUserWorkoutSessions(traineeId, 1, 100);
+            if (sessionsRes.success) {
+                const sessionsMap = {};
+                sessionsMap[traineeId] = sessionsRes.workoutSessions || [];
+                setWorkoutSessions(prev => ({ ...prev, ...sessionsMap }));
             }
         } catch (err) {
             console.error('API error:', err);
@@ -160,6 +129,53 @@ const ScheduleCalendar = () => {
         setIsEditing(false);
     };
 
+    // Session management functions
+    const getSessionsForDate = (date) => {
+        if (!selectedTraineeId || !workoutSessions[selectedTraineeId]) return [];
+        
+        const dateKey = formatDateKey(date);
+        return workoutSessions[selectedTraineeId].filter(session => {
+            const sessionDate = new Date(session.workoutDate).toISOString().split('T')[0];
+            return sessionDate === dateKey;
+        });
+    };
+
+    const handleConfirmSession = async (sessionId) => {
+        try {
+            setLoadingSessions(true);
+            await confirmWorkoutSession(sessionId, { confirmed: true });
+            
+            // Refresh sessions
+            if (selectedTraineeId) {
+                await fetchScheduleForTrainee(selectedTraineeId);
+            }
+            
+            alert('Đã xác nhận buổi tập thành công!');
+        } catch (err) {
+            alert('Lỗi khi xác nhận buổi tập: ' + (err.message || 'Unknown error'));
+        } finally {
+            setLoadingSessions(false);
+        }
+    };
+
+    const handleCheckOutSession = async (sessionId, notes = '') => {
+        try {
+            setLoadingSessions(true);
+            await checkOutWorkoutSession(sessionId, notes);
+            
+            // Refresh sessions
+            if (selectedTraineeId) {
+                await fetchScheduleForTrainee(selectedTraineeId);
+            }
+            
+            alert('Đã hoàn thành buổi tập thành công!');
+        } catch (err) {
+            alert('Lỗi khi hoàn thành buổi tập: ' + (err.message || 'Unknown error'));
+        } finally {
+            setLoadingSessions(false);
+        }
+    };
+
     const handleAddWorkout = () => {
         if (!selectedTraineeId) {
             alert('Vui lòng chọn học viên trước khi thêm lịch tập.');
@@ -178,11 +194,14 @@ const ScheduleCalendar = () => {
 
     const handleSaveWorkout = async () => {
         if (!selectedDate || !selectedTraineeId) return;
+        
         const dateKey = formatDateKey(selectedDate);
         const updatedWorkouts = { ...workouts };
+        
         if (!updatedWorkouts[selectedTraineeId]) {
             updatedWorkouts[selectedTraineeId] = {};
         }
+        
         if (tempWorkout.title.trim() === '') {
             if (updatedWorkouts[selectedTraineeId][dateKey]) {
                 delete updatedWorkouts[selectedTraineeId][dateKey];
@@ -190,10 +209,12 @@ const ScheduleCalendar = () => {
         } else {
             updatedWorkouts[selectedTraineeId][dateKey] = { ...tempWorkout };
         }
+        
         setWorkouts(updatedWorkouts);
         setIsEditing(false);
-        // Gọi API lưu lịch tập
+        
         try {
+            // Save schedule entry
             await createUserWorkoutSchedule(selectedTraineeId, {
                 schedule: [{
                     dayOfWeek: selectedDate.toLocaleDateString('en-US', { weekday: 'long' }),
@@ -202,8 +223,28 @@ const ScheduleCalendar = () => {
                 }],
                 note: tempWorkout.description
             });
+            
+            // Create workout session if requested
+            if (tempWorkout.createSession) {
+                // Find the user's active membership
+                const trainee = trainees.find(t => t.id === selectedTraineeId);
+                if (trainee && trainee.membershipId) {
+                    const coach = authService.getCurrentUser();
+                    await createWorkoutSession({
+                        membershipId: trainee.membershipId,
+                        workoutDate: dateKey,
+                        startTime: tempWorkout.startTime,
+                        endTime: tempWorkout.endTime,
+                        exerciseName: tempWorkout.title,
+                        notes: tempWorkout.description,
+                        coachId: coach._id
+                    });
+                }
+            }
+            
         } catch (err) {
-            // Có thể show toast lỗi
+            console.error('Error saving workout:', err);
+            alert('Có lỗi khi lưu lịch tập: ' + (err.message || 'Unknown error'));
         }
     };
 
@@ -228,7 +269,6 @@ const ScheduleCalendar = () => {
     // Sửa lại handleTraineeSelect để luôn gọi API
     const handleTraineeSelect = (traineeId) => {
         setSelectedTraineeId(traineeId);
-        setShowTraineeSelector(false);
         fetchScheduleForTrainee(traineeId); // Luôn gọi API khi chọn
         // Reset workout detail when changing trainee
         if (selectedDate) {
@@ -484,12 +524,52 @@ const ScheduleCalendar = () => {
                                                 <textarea
                                                     className="form-control"
                                                     id="workoutDescription"
-                                                    rows="10"
+                                                    rows="6"
                                                     placeholder="Nhập chi tiết bài tập (mỗi bài tập một dòng)"
                                                     value={tempWorkout.description}
                                                     onChange={(e) => setTempWorkout({ ...tempWorkout, description: e.target.value })}
                                                 ></textarea>
                                             </div>
+
+                                            <div className="mb-3">
+                                                <div className="form-check">
+                                                    <input
+                                                        className="form-check-input"
+                                                        type="checkbox"
+                                                        id="createSession"
+                                                        checked={tempWorkout.createSession}
+                                                        onChange={(e) => setTempWorkout({ ...tempWorkout, createSession: e.target.checked })}
+                                                    />
+                                                    <label className="form-check-label fw-bold" htmlFor="createSession">
+                                                        Tạo buổi tập theo dõi tiến độ
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            {tempWorkout.createSession && (
+                                                <div className="row mb-3">
+                                                    <div className="col-md-6">
+                                                        <label htmlFor="startTime" className="form-label fw-bold">Thời gian bắt đầu</label>
+                                                        <input
+                                                            type="time"
+                                                            className="form-control"
+                                                            id="startTime"
+                                                            value={tempWorkout.startTime}
+                                                            onChange={(e) => setTempWorkout({ ...tempWorkout, startTime: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div className="col-md-6">
+                                                        <label htmlFor="endTime" className="form-label fw-bold">Thời gian kết thúc</label>
+                                                        <input
+                                                            type="time"
+                                                            className="form-control"
+                                                            id="endTime"
+                                                            value={tempWorkout.endTime}
+                                                            onChange={(e) => setTempWorkout({ ...tempWorkout, endTime: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             <div className="d-flex gap-2 justify-content-end">
                                                 <button
@@ -510,11 +590,15 @@ const ScheduleCalendar = () => {
                                         </div>
                                     ) : (
                                         <div className="workout-details">
-                                            {/* Show workouts for the selected date */}
-                                            {getWorkoutsForDate(selectedDate).length > 0 ? (
-                                                <div>
+                                            {/* Show schedules for the selected date */}
+                                            {getWorkoutsForDate(selectedDate).length > 0 && (
+                                                <div className="mb-4">
+                                                    <h6 className="text-primary fw-bold mb-3">
+                                                        <Calendar size={16} className="me-2" />
+                                                        Lịch tập được xếp
+                                                    </h6>
                                                     {getWorkoutsForDate(selectedDate).map((workout, index) => (
-                                                        <div key={index} className="workout-item mb-4">
+                                                        <div key={index} className="workout-item mb-3">
                                                             {!selectedTraineeId && (
                                                                 <div className="d-flex align-items-center mb-2">
                                                                     <User size={16} className="text-primary me-2" />
@@ -523,7 +607,7 @@ const ScheduleCalendar = () => {
                                                             )}
 
                                                             <div className="d-flex justify-content-between align-items-center mb-2">
-                                                                <h5 className="fw-bold text-primary mb-0">{workout.title}</h5>
+                                                                <h6 className="fw-bold text-primary mb-0">{workout.title}</h6>
                                                                 {selectedTraineeId && (
                                                                     <button
                                                                         className="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
@@ -548,12 +632,98 @@ const ScheduleCalendar = () => {
                                                             </div>
 
                                                             {index < getWorkoutsForDate(selectedDate).length - 1 && (
-                                                                <hr className="my-3" />
+                                                                <hr className="my-2" />
                                                             )}
                                                         </div>
                                                     ))}
                                                 </div>
-                                            ) : (
+                                            )}
+
+                                            {/* Show workout sessions for the selected date */}
+                                            {selectedTraineeId && getSessionsForDate(selectedDate).length > 0 && (
+                                                <div className="mb-4">
+                                                    <h6 className="text-success fw-bold mb-3">
+                                                        <Award size={16} className="me-2" />
+                                                        Buổi tập đã tạo ({getSessionsForDate(selectedDate).length})
+                                                    </h6>
+                                                    {getSessionsForDate(selectedDate).map((session, index) => (
+                                                        <div key={index} className="session-item mb-3 p-3 border rounded">
+                                                            <div className="d-flex justify-content-between align-items-start mb-2">
+                                                                <h6 className="fw-bold text-success mb-0">{session.exerciseName}</h6>
+                                                                <div className="d-flex align-items-center gap-2">                                                    <span className="badge bg-info">
+                                                        {session.startTime} - {session.endTime}
+                                                    </span>
+                                                    {session.status === 'completed' ? (
+                                                        <span className="badge bg-success">
+                                                            <CheckCircle2 size={14} className="me-1" />
+                                                            Đã hoàn thành
+                                                        </span>
+                                                    ) : session.status === 'checked_in' ? (
+                                                        <span className="badge bg-primary">
+                                                            <User size={14} className="me-1" />
+                                                            Đã check-in
+                                                        </span>
+                                                    ) : session.isConfirmed ? (
+                                                        <span className="badge bg-success">
+                                                            <CheckCircle2 size={14} className="me-1" />
+                                                            Đã xác nhận
+                                                        </span>
+                                                    ) : (
+                                                        <span className="badge bg-warning">
+                                                            <XCircle size={14} className="me-1" />
+                                                            Chờ xác nhận
+                                                        </span>
+                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {session.notes && (
+                                                                <p className="text-muted small mb-2">{session.notes}</p>
+                                                            )}                                            <div className="d-flex justify-content-between align-items-center">
+                                                <small className="text-muted">
+                                                    Tạo lúc: {new Date(session.createdAt).toLocaleString('vi-VN')}
+                                                    {session.checkedInAt && (
+                                                        <span className="d-block">
+                                                            Check-in: {new Date(session.checkedInAt).toLocaleString('vi-VN')}
+                                                        </span>
+                                                    )}
+                                                    {session.checkedOutAt && (
+                                                        <span className="d-block">
+                                                            Hoàn thành: {new Date(session.checkedOutAt).toLocaleString('vi-VN')}
+                                                        </span>
+                                                    )}
+                                                </small>
+                                                <div className="d-flex gap-2">
+                                                    {session.status === 'checked_in' && (
+                                                        <button
+                                                            className="btn btn-sm btn-success"
+                                                            onClick={() => handleCheckOutSession(session._id)}
+                                                            disabled={loadingSessions}
+                                                        >
+                                                            <CheckCircle2 size={14} className="me-1" />
+                                                            {loadingSessions ? 'Đang xử lý...' : 'Hoàn thành'}
+                                                        </button>
+                                                    )}
+                                                    {!session.isConfirmed && session.status === 'scheduled' && (
+                                                        <button
+                                                            className="btn btn-sm btn-success"
+                                                            onClick={() => handleConfirmSession(session._id)}
+                                                            disabled={loadingSessions}
+                                                        >
+                                                            <CheckCircle2 size={14} className="me-1" />
+                                                            {loadingSessions ? 'Đang xử lý...' : 'Xác nhận'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* No schedule or sessions message */}
+                                            {getWorkoutsForDate(selectedDate).length === 0 && 
+                                             (!selectedTraineeId || getSessionsForDate(selectedDate).length === 0) && (
                                                 <div className="text-center py-5">
                                                     <div className="mb-3 text-muted">
                                                         {selectedTraineeId

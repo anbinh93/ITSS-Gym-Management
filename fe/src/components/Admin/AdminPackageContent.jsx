@@ -3,7 +3,7 @@ import ButtonAddNew from "../Button/ButtonAddNew";
 import ActionButtons from "../Button/ActionButtons";
 import ModalForm from "./Modal/ModalForm";
 import { getAllPackages, createPackage, updatePackage, deletePackage, getAllUsers } from '../../services/api';
-import { getAllMemberships, registerMembership, updatePaymentStatus } from '../../services/membershipApi';
+import { getAllMemberships, registerMembership, updatePaymentStatus, updateCoach } from '../../services/membershipApi';
 
 export default function AdminPackageContent() {
   const [packages, setPackages] = useState([]);
@@ -19,6 +19,8 @@ export default function AdminPackageContent() {
   const [packageEdit, setPackageEdit] = useState({});
 
   const [coaches, setCoaches] = useState([]);
+  const [isShowModalEditCoach, setIsShowModalEditCoach] = useState(false);
+  const [membershipEdit, setMembershipEdit] = useState({});
 
   // Fetch packages and users from backend
   const fetchPackages = async () => {
@@ -132,6 +134,7 @@ export default function AdminPackageContent() {
   const handleClose = () => {
     setIsShowModalAddPackage(false);
     setIsShowModalAddRegistration(false);
+    setIsShowModalEditCoach(false);
   };
 
   const handleEditPackage = (pkg) => {
@@ -210,6 +213,48 @@ export default function AdminPackageContent() {
     }
   };
 
+  const handleEditCoach = (membership) => {
+    setMembershipEdit(membership);
+    setIsShowModalEditCoach(true);
+  };
+
+  const handleCloseCoach = () => {
+    setIsShowModalEditCoach(false);
+    setMembershipEdit({});
+  };
+
+  const onSubmitCoach = async (formData) => {
+    setLoading(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await updateCoach(membershipEdit._id, formData.coach);
+      if (res.success) {
+        setSuccessMsg('Cập nhật HLV thành công!');
+        setIsShowModalEditCoach(false);
+        fetchMemberships();
+      } else {
+        setError(res.message || 'Cập nhật HLV thất bại');
+      }
+    } catch (err) {
+      setError(err.message || 'Cập nhật HLV thất bại');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const coachFields = [
+    {
+      name: "coach",
+      label: "Huấn luyện viên",
+      type: "select",
+      options: [
+        { label: "Không có HLV", value: "" },
+        ...coaches.map((c) => ({ label: `${c.name} (${c.email})`, value: c._id })),
+      ],
+    },
+  ];
+
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -258,6 +303,7 @@ export default function AdminPackageContent() {
             <th>ID</th>
             <th>Khách hàng</th>
             <th>Gói tập</th>
+            <th>HLV phụ trách</th>
             <th>Ngày đăng ký</th>
             <th>Ngày kết thúc</th>
             <th>Trạng thái thanh toán</th>
@@ -270,15 +316,21 @@ export default function AdminPackageContent() {
               <td>{m._id}</td>
               <td>{m.user?.name || ''}</td>
               <td>{m.package?.name || ''}</td>
+              <td>{m.coach?.name || 'Chưa có'}</td>
               <td>{m.startDate ? new Date(m.startDate).toLocaleDateString() : ''}</td>
               <td>{m.endDate ? new Date(m.endDate).toLocaleDateString() : ''}</td>
               <td>{m.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}</td>
               <td>
-                {m.paymentStatus === 'unpaid' && (
-                  <button className="btn btn-sm btn-success" onClick={() => handleMarkAsPaid(m._id)}>
-                    Đánh dấu đã thanh toán
+                <div className="d-flex gap-1 flex-wrap">
+                  {m.paymentStatus === 'unpaid' && (
+                    <button className="btn btn-sm btn-success" onClick={() => handleMarkAsPaid(m._id)}>
+                      Đánh dấu đã thanh toán
+                    </button>
+                  )}
+                  <button className="btn btn-sm btn-primary" onClick={() => handleEditCoach(m)}>
+                    Chỉnh sửa HLV
                   </button>
-                )}
+                </div>
               </td>
             </tr>
           ))}
@@ -304,6 +356,15 @@ export default function AdminPackageContent() {
         fields={registrationFields}
         data={{}}
         onSubmit={onSubmitRegistration}
+      />
+
+      <ModalForm
+        show={isShowModalEditCoach}
+        handleClose={handleCloseCoach}
+        title="Chỉnh sửa huấn luyện viên"
+        fields={coachFields}
+        data={{ coach: membershipEdit.coach?._id || "" }}
+        onSubmit={onSubmitCoach}
       />
     </div>
   );

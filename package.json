@@ -4,5 +4,8 @@
     "eslint": "^9.27.0",
     "eslint-plugin-react": "^7.37.5",
     "globals": "^16.2.0"
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
   }
 }

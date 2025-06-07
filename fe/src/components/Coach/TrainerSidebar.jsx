@@ -1,13 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { FaHome, FaUsers, FaCalendarAlt, FaChartLine, FaDumbbell, FaUser } from 'react-icons/fa';
+import { FaHome, FaUsers, FaCalendarAlt, FaDumbbell, FaUser, FaChartLine } from 'react-icons/fa';
 
 const links = [
     { path: '/coach/dashboard', label: 'Trang chủ', icon: <FaHome /> },
     { path: '/coach/clients', label: 'Hội viên', icon: <FaUsers /> },
     { path: '/coach/schedule', label: 'Lịch tập', icon: <FaCalendarAlt /> },
-    { path: '/coach/training-progress', label: 'Tiến độ', icon: <FaChartLine /> },
     { path: '/coach/training-programs', label: 'Chương trình tập', icon: <FaDumbbell /> },
+    { path: '/coach/progress', label: 'Tiến độ', icon: <FaChartLine /> },
     { path: '/coach/profile', label: 'Profile', icon: <FaUser /> },
 ];
 

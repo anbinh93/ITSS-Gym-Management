@@ -1,61 +1,81 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, User, Clock, Award, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, User, Clock, Award, Calendar as CalendarIcon, CheckCircle2, XCircle } from 'lucide-react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { getUserWorkoutSchedule } from '../../services/api';
-import { fetchWithAuth } from '../../services/api';
+import { getUserWorkoutSessions, createWorkoutSession, checkInWorkoutSession } from '../../services/workoutSessionApi';
+import { getActiveMembership } from '../../services/membershipApi';
+import authService from '../../services/authService';
 
 export default function UserTrainingSchedule() {
     const [scheduleData, setScheduleData] = useState({});
+    const [workoutSessions, setWorkoutSessions] = useState([]);
+    const [activeMembership, setActiveMembership] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDay, setSelectedDay] = useState(new Date());
-    const [attendanceMap, setAttendanceMap] = useState({});
 
     useEffect(() => {
-        const fetchSchedule = async () => {
+        const fetchData = async () => {
             setLoading(true);
             setError("");
             try {
-                const user = JSON.parse(localStorage.getItem('gym_user'));
+                const user = authService.getCurrentUser();
                 if (!user || !user._id) {
                     setError("Không tìm thấy thông tin người dùng");
                     setLoading(false);
                     return;
                 }
-                const res = await getUserWorkoutSchedule(user._id);
-                if (res.success) {
-                    // Chuyển đổi dữ liệu từ API về dạng { yyyy-mm-dd: [ {time, activity, trainer, scheduleId, attendance} ] }
+
+                // Fetch schedule data
+                const scheduleRes = await getUserWorkoutSchedule(user._id);
+                if (scheduleRes && scheduleRes.success) {
                     const map = {};
-                    const attMap = {};
-                    (res.schedules || []).forEach(sch => {
+                    (scheduleRes.schedules || []).forEach(sch => {
                         (sch.schedule || []).forEach(item => {
                             if (item.time && item.time.match(/^\d{4}-\d{2}-\d{2}/)) {
                                 if (!map[item.time]) map[item.time] = [];
                                 map[item.time].push({
-                                    time: item.time,
+                                    date: item.time,
+                                    startTime: item.startTime || '08:00',
+                                    endTime: item.endTime || '09:00',
                                     activity: item.exercises?.join(', ') || '',
                                     trainer: sch.coach?.name || null,
-                                    scheduleId: sch._id,
-                                    attendance: sch.attendance || []
+                                    coachId: sch.coach?._id || null,
+                                    scheduleId: sch._id
                                 });
-                                // Lưu trạng thái attendance cho từng scheduleId
-                                attMap[sch._id] = sch.attendance || [];
                             }
                         });
                     });
                     setScheduleData(map);
-                    setAttendanceMap(attMap);
                 } else {
-                    setError(res.message || "Không thể tải lịch tập");
+                    console.warn('Failed to fetch schedule:', scheduleRes?.message || 'Unknown error');
                 }
+
+                // Fetch workout sessions
+                const sessionsRes = await getUserWorkoutSessions(user._id, 1, 100);
+                if (sessionsRes && sessionsRes.success) {
+                    setWorkoutSessions(sessionsRes.workoutSessions || []);
+                } else {
+                    console.warn('Failed to fetch workout sessions:', sessionsRes?.message || 'Unknown error');
+                }
+
+                // Fetch active membership
+                const membershipRes = await getActiveMembership(user._id);
+                if (membershipRes && membershipRes.success && membershipRes.memberships && membershipRes.memberships.length > 0) {
+                    setActiveMembership(membershipRes.memberships[0]);
+                } else {
+                    console.warn('Failed to fetch membership:', membershipRes?.message || 'Unknown error');
+                }
+
             } catch (err) {
                 setError("Lỗi kết nối API");
+                console.error('API Error:', err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchSchedule();
+        fetchData();
     }, []);
 
     const getDaysOfWeek = (date) => {
@@ -72,6 +92,15 @@ export default function UserTrainingSchedule() {
         return scheduleData[formatDate(selectedDay)] || [];
     };
 
+    // Get workout sessions for selected day
+    const getSessionsForSelectedDay = () => {
+        const dateStr = formatDate(selectedDay);
+        return workoutSessions.filter(session => {
+            const sessionDate = new Date(session.workoutDate).toISOString().split('T')[0];
+            return sessionDate === dateStr;
+        });
+    };
+
     const goToPreviousWeek = () => {
         const newDate = new Date(currentDate);
         newDate.setDate(currentDate.getDate() - 7);
@@ -86,12 +115,18 @@ export default function UserTrainingSchedule() {
 
     const currentWeekDays = getDaysOfWeek(currentDate);
 
-    // Kiểm tra xem ngày có lịch tập không
+    // Check if date has schedule or sessions
     const hasSchedule = (date) => {
-        return scheduleData[formatDate(date)] ? true : false;
+        const dateStr = formatDate(date);
+        const hasScheduleData = scheduleData[dateStr] && scheduleData[dateStr].length > 0;
+        const hasSessions = workoutSessions.some(session => {
+            const sessionDate = new Date(session.workoutDate).toISOString().split('T')[0];
+            return sessionDate === dateStr;
+        });
+        return hasScheduleData || hasSessions;
     };
 
-    // Kiểm tra xem ngày có phải là ngày hôm nay không
+    // Check if date is today
     const isToday = (date) => {
         const today = new Date();
         return date.getDate() === today.getDate() &&
@@ -99,44 +134,71 @@ export default function UserTrainingSchedule() {
             date.getFullYear() === today.getFullYear();
     };
 
-    // Kiểm tra xem ngày có được chọn không
+    // Check if date is selected
     const isSelected = (date) => {
         return date.getDate() === selectedDay.getDate() &&
             date.getMonth() === selectedDay.getMonth() &&
             date.getFullYear() === selectedDay.getFullYear();
     };
 
-    // Hàm điểm danh
-    const handleAttendance = async (scheduleId) => {
+    // Create workout session for a scheduled item
+    const handleCreateSession = async (scheduleItem) => {
+        try {
+            // Enhanced validation: If user has scheduled training, they should be able to create sessions
+            const hasValidSchedule = Object.keys(scheduleData).length > 0;
+            
+            if (!activeMembership) {
+                if (hasValidSchedule) {
+                    // User has schedule but no active membership found - show more helpful message
+                    alert('Không tìm thấy gói tập active. Vui lòng liên hệ với quản lý hoặc huấn luyện viên để kiểm tra tình trạng membership.');
+                } else {
+                    alert('Bạn cần có gói tập active để tạo buổi tập!');
+                }
+                return;
+            }
+
+            setLoading(true);
+            await createWorkoutSession({
+                membershipId: activeMembership._id,
+                workoutDate: scheduleItem.date,
+                startTime: scheduleItem.startTime,
+                endTime: scheduleItem.endTime,
+                exerciseName: scheduleItem.activity,
+                notes: '',
+                coachId: scheduleItem.coachId
+            });
+
+            // Refresh data after successful creation
+            const user = authService.getCurrentUser();
+            const sessionsRes = await getUserWorkoutSessions(user._id, 1, 100);
+            if (sessionsRes.success) {
+                setWorkoutSessions(sessionsRes.workoutSessions || []);
+            }
+
+            alert('Tạo buổi tập thành công!');
+        } catch (err) {
+            alert('Lỗi khi tạo buổi tập: ' + (err.message || 'Unknown error'));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Handle user check-in
+    const handleCheckIn = async (sessionId) => {
         try {
             setLoading(true);
-            await fetchWithAuth(`/api/schedule/${scheduleId}/attendance`, { method: 'POST' });
-            // Sau khi điểm danh, reload lại lịch tập
-            const user = JSON.parse(localStorage.getItem('gym_user'));
-            const res = await getUserWorkoutSchedule(user._id);
-            if (res.success) {
-                const map = {};
-                const attMap = {};
-                (res.schedules || []).forEach(sch => {
-                    (sch.schedule || []).forEach(item => {
-                        if (item.time && item.time.match(/^\d{4}-\d{2}-\d{2}/)) {
-                            if (!map[item.time]) map[item.time] = [];
-                            map[item.time].push({
-                                time: item.time,
-                                activity: item.exercises?.join(', ') || '',
-                                trainer: sch.coach?.name || null,
-                                scheduleId: sch._id,
-                                attendance: sch.attendance || []
-                            });
-                            attMap[sch._id] = sch.attendance || [];
-                        }
-                    });
-                });
-                setScheduleData(map);
-                setAttendanceMap(attMap);
+            await checkInWorkoutSession(sessionId);
+            
+            // Refresh data
+            const user = authService.getCurrentUser();
+            const sessionsRes = await getUserWorkoutSessions(user._id, 1, 100);
+            if (sessionsRes.success) {
+                setWorkoutSessions(sessionsRes.workoutSessions || []);
             }
+
+            alert('Check-in thành công!');
         } catch (err) {
-            alert('Lỗi khi xác nhận buổi tập!');
+            alert('Lỗi khi check-in: ' + (err.message || 'Unknown error'));
         } finally {
             setLoading(false);
         }
@@ -220,52 +282,171 @@ export default function UserTrainingSchedule() {
                             </h5>
                         </div>
                         <div className="card-body p-3">
-                            {getScheduleForSelectedDay().length ? (
-                                <div className="row g-3">
-                                    {getScheduleForSelectedDay().map((item, index) => {
-                                        const user = JSON.parse(localStorage.getItem('gym_user'));
-                                        const attended = item.attendance && user && item.attendance.includes(user._id);
-                                        return (
+                            {/* Display scheduled items */}
+                            {getScheduleForSelectedDay().length > 0 && (
+                                <div className="mb-4">
+                                    <h6 className="text-primary fw-bold mb-3">
+                                        <Calendar size={16} className="me-2" />
+                                        Lịch tập được xếp
+                                    </h6>
+                                    <div className="row g-3">
+                                        {getScheduleForSelectedDay().map((item, index) => {
+                                            // Check if there's already a session for this schedule item
+                                            const existingSession = workoutSessions.find(session => {
+                                                const sessionDate = new Date(session.workoutDate).toISOString().split('T')[0];
+                                                const scheduleDate = item.date;
+                                                const sessionTime = `${session.startTime}-${session.endTime}`;
+                                                const scheduleTime = `${item.startTime}-${item.endTime}`;
+                                                
+                                                // More precise matching: date, exercise name, and time
+                                                const isMatch = sessionDate === scheduleDate && 
+                                                              session.exerciseName === item.activity &&
+                                                              sessionTime === scheduleTime;
+                                                
+                                                return isMatch;
+                                            });
+
+                                            return (
+                                                <div key={index} className="col-md-6">
+                                                    <div className="card h-100 border-0 shadow-sm">
+                                                        <div className="card-body">
+                                                            <div className="d-flex justify-content-between mb-3">
+                                                                <h6 className="fw-bold text-primary mb-0">{item.activity}</h6>
+                                                                <span className="badge bg-primary rounded-pill d-flex align-items-center">
+                                                                    <Clock size={14} className="me-1" /> 
+                                                                    {item.startTime} - {item.endTime}
+                                                                </span>
+                                                            </div>
+                                                            <div className="d-flex align-items-center mb-3">
+                                                                <div className="rounded-circle bg-light p-2 me-2">
+                                                                    <User size={20} className="text-primary" />
+                                                                </div>
+                                                                <span>
+                                                                    {item.trainer ? (
+                                                                        <>
+                                                                            <span className="text-muted small">HLV:</span> {item.trainer}
+                                                                        </>
+                                                                    ) : (
+                                                                        <span className="text-muted small">Tự tập</span>
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            <div className="mt-3">
+                                                                {existingSession ? (
+                                                                    <div className="d-flex align-items-center flex-wrap gap-2">
+                                                                        {existingSession.status === 'scheduled' && (
+                                                                            <button 
+                                                                                className="btn btn-success btn-sm"
+                                                                                onClick={() => handleCheckIn(existingSession._id)}
+                                                                                disabled={loading}
+                                                                            >
+                                                                                Check-in
+                                                                            </button>
+                                                                        )}
+                                                                        {existingSession.status === 'checked_in' && (
+                                                                            <span className="badge bg-warning">
+                                                                                Đã check-in - Chờ HLV check-out
+                                                                            </span>
+                                                                        )}
+                                                                        {existingSession.status === 'completed' && (
+                                                                            <span className="badge bg-success">
+                                                                                Đã hoàn thành
+                                                                            </span>
+                                                                        )}
+                                                                        {existingSession.status === 'cancelled' && (
+                                                                            <span className="badge bg-danger">
+                                                                                Đã hủy
+                                                                            </span>
+                                                                        )}
+                                                                        {!existingSession.status && (
+                                                                            <span className="badge bg-info">
+                                                                                {existingSession.isConfirmed ? 'Đã xác nhận' : 'Chờ xác nhận'}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <button 
+                                                                        className="btn btn-outline-primary btn-sm"
+                                                                        onClick={() => handleCreateSession(item)}
+                                                                        disabled={loading}
+                                                                    >
+                                                                        Tạo buổi tập
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Display workout sessions */}
+                            {getSessionsForSelectedDay().length > 0 && (
+                                <div className="mb-4">
+                                    <h6 className="text-success fw-bold mb-3">
+                                        <Award size={16} className="me-2" />
+                                        Buổi tập đã tạo
+                                    </h6>
+                                    <div className="row g-3">
+                                        {getSessionsForSelectedDay().map((session, index) => (
                                             <div key={index} className="col-md-6">
-                                                <div className="card h-100 border-0 shadow-sm hover-shadow">
+                                                <div className="card h-100 border-0 shadow-sm">
                                                     <div className="card-body">
                                                         <div className="d-flex justify-content-between mb-3">
-                                                            <h6 className="fw-bold text-primary mb-0">{item.activity}</h6>
-                                                            <span className="badge bg-primary rounded-pill d-flex align-items-center">
-                                                                <Clock size={14} className="me-1" /> {item.time}
+                                                            <h6 className="fw-bold text-success mb-0">{session.exerciseName}</h6>
+                                                            <span className="badge bg-success rounded-pill d-flex align-items-center">
+                                                                <Clock size={14} className="me-1" /> 
+                                                                {session.startTime} - {session.endTime}
                                                             </span>
                                                         </div>
-                                                        <div className="d-flex align-items-center mb-2">
+                                                        <div className="d-flex align-items-center mb-3">
                                                             <div className="rounded-circle bg-light p-2 me-2">
-                                                                <User size={20} className="text-primary" />
+                                                                <User size={20} className="text-success" />
                                                             </div>
                                                             <span>
-                                                                {item.trainer ? (
+                                                                {session.coach ? (
                                                                     <>
-                                                                        <span className="text-muted small">HLV:</span> {item.trainer}
+                                                                        <span className="text-muted small">HLV:</span> {session.coach.name}
                                                                     </>
                                                                 ) : (
-                                                                    <span className="text-muted small">Không rõ HLV</span>
+                                                                    <span className="text-muted small">Tự tập</span>
                                                                 )}
                                                             </span>
                                                         </div>
-                                                        {/* Nút xác nhận điểm danh */}
-                                                        <div className="mt-3">
-                                                            {attended ? (
-                                                                <span className="badge bg-success">Đã xác nhận</span>
-                                                            ) : (
-                                                                <button className="btn btn-outline-success btn-sm" onClick={() => handleAttendance(item.scheduleId)}>
-                                                                    Xác nhận đã tập
-                                                                </button>
-                                                            )}
+                                                        {session.notes && (
+                                                            <p className="text-muted small mb-3">{session.notes}</p>
+                                                        )}
+                                                        <div className="d-flex align-items-center justify-content-between">
+                                                            <div className="d-flex align-items-center">
+                                                                {session.isConfirmed ? (
+                                                                    <>
+                                                                        <CheckCircle2 size={16} className="text-success me-2" />
+                                                                        <span className="badge bg-success">Đã xác nhận</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <XCircle size={16} className="text-warning me-2" />
+                                                                        <span className="badge bg-warning">Chờ xác nhận</span>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                            <small className="text-muted">
+                                                                {new Date(session.createdAt).toLocaleString('vi-VN')}
+                                                            </small>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
+                                        ))}
+                                    </div>
                                 </div>
-                            ) : (
+                            )}
+
+                            {/* No schedule or sessions message */}
+                            {getScheduleForSelectedDay().length === 0 && getSessionsForSelectedDay().length === 0 && (
                                 <div className="text-center py-5">
                                     <div className="mb-3">
                                         <Award size={48} className="text-muted" />

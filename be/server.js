@@ -12,6 +12,7 @@ import statisticRouter from "./routes/statisticRoute.js";
 import gymRoomRouter from "./routes/gymRoomRoute.js";
 import workoutScheduleRouter from "./routes/workoutScheduleRoute.js";
 import progressRouter from "./routes/progressRoute.js";
+import workoutSessionRouter from "./routes/workoutSessionRoute.js";
 
 
 // app config
@@ -35,6 +36,7 @@ app.use("/api/statistics", statisticRouter);
 app.use("/api/gymroom", gymRoomRouter);
 app.use("/api/schedule", workoutScheduleRouter);
 app.use("/api/progress", progressRouter);
+app.use("/api/workout-sessions", workoutSessionRouter);
 
 
 app.get("/",(req,res)=>{

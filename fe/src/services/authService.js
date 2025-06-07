@@ -1,4 +1,4 @@
-import { login as apiLogin, register as apiRegister, getCurrentUser as apiGetCurrentUser, logout as apiLogout } from "./api";
+import { login as apiLogin, logout as apiLogout } from "./api";
 
 // Mock Authentication Service
 const DEMO_ACCOUNTS = [
@@ -44,37 +44,7 @@ const DEMO_ACCOUNTS = [
   }
 ];
 
-// Simulate API delay
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// Generate a mock JWT token
-const generateToken = (user) => {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = btoa(JSON.stringify({ 
-    id: user.id, 
-    email: user.email, 
-    role: user.role,
-    exp: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
-  }));
-  const signature = btoa('mock-signature');
-  return `${header}.${payload}.${signature}`;
-};
-
-// Decode mock JWT token
-const decodeToken = (token) => {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    
-    const payload = JSON.parse(atob(parts[1]));
-    if (payload.exp < Date.now()) return null; // Token expired
-    
-    return payload;
-  } catch (error) {
-    return null;
-  }
-};
-
+// Authentication Service with real API integration
 export const authService = {
   // Login with email/username and password
   async login(credentials) {

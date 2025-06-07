@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Controller } from 'react-bootstrap-icons';
 
 const AuthContext = createContext(null);
 
